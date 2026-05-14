@@ -15,6 +15,7 @@ import { Card } from '../../components/Card'
 import { Input } from '../../components/Input'
 import { Colors } from '../../constants/colors'
 import { useAuth } from '../../hooks/useAuth'
+import { useHamburgerHeader } from '../../hooks/useHamburgerHeader'
 import { supabase } from '../../lib/supabase'
 import { Profile, Sale } from '../../lib/types'
 
@@ -26,6 +27,7 @@ interface EmployeeStats {
 }
 
 export default function EmployesScreen() {
+  useHamburgerHeader()
   const { profile } = useAuth()
   const [stats, setStats] = useState<EmployeeStats[]>([])
   const [refreshing, setRefreshing] = useState(false)

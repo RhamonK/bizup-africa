@@ -1,17 +1,15 @@
-import { useNavigation } from 'expo-router'
-import { useEffect, useLayoutEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Modal, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { AppDrawer, HamburgerBtn } from '../../components/AppDrawer'
 import { AvatarDisplay } from '../../components/AvatarDisplay'
 import { BarChart } from '../../components/BarChart'
 import { Button } from '../../components/Button'
 import { Input } from '../../components/Input'
 import { Colors } from '../../constants/colors'
 import { useAuth } from '../../hooks/useAuth'
-import { useDrawer } from '../../hooks/useDrawer'
+import { useHamburgerHeader } from '../../hooks/useHamburgerHeader'
 import { getSeasonAlert } from '../../lib/season'
 import { supabase } from '../../lib/supabase'
 import { Client, Product, Sale } from '../../lib/types'
@@ -42,12 +40,7 @@ function fmt(n: number) {
 
 export default function BossDashboard() {
   const { profile } = useAuth()
-  const { } = useDrawer()
-  const navigation = useNavigation()
-
-  useLayoutEffect(() => {
-    navigation.setOptions({ headerLeft: () => <HamburgerBtn /> })
-  }, [navigation])
+  useHamburgerHeader()
 
   const [todaySales, setTodaySales] = useState<Sale[]>([])
   const [alertProducts, setAlertProducts] = useState<Product[]>([])
@@ -192,20 +185,8 @@ export default function BossDashboard() {
     },
   ]
 
-  const BOSS_NAV = [
-    { route: '/(boss)/', label: 'Tableau de bord' },
-    { route: '/(boss)/gestion', label: 'Gestion' },
-    { route: '/(boss)/fournisseurs', label: 'Fournisseurs' },
-    { route: '/(boss)/historique', label: 'Historique ventes' },
-    { route: '/(boss)/marges', label: 'Marges & Finances' },
-    { route: '/(boss)/employes', label: 'Équipe', badge: undefined },
-    { route: '/(boss)/finances', label: 'Dossier Financier' },
-    { route: '/(boss)/profil', label: 'Mon Profil' },
-  ]
-
   return (
     <View style={{ flex: 1 }}>
-    <AppDrawer items={BOSS_NAV} activeRoute="/(boss)/" accentColor={Colors.mint} />
     <ScrollView
       style={styles.root}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await loadAll(); setRefreshing(false) }} tintColor={Colors.mint} />}

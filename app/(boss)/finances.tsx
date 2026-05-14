@@ -12,6 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { Card } from '../../components/Card'
 import { Colors } from '../../constants/colors'
 import { useAuth } from '../../hooks/useAuth'
+import { useHamburgerHeader } from '../../hooks/useHamburgerHeader'
 import { supabase } from '../../lib/supabase'
 
 interface FinanceData {
@@ -58,6 +59,7 @@ const badgeStyles = StyleSheet.create({
 })
 
 export default function FinancesScreen() {
+  useHamburgerHeader()
   const { profile } = useAuth()
   const [data, setData] = useState<FinanceData | null>(null)
   const [refreshing, setRefreshing] = useState(false)

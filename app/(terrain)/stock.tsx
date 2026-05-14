@@ -9,6 +9,7 @@ import { Input } from '../../components/Input'
 import { ScreenHeader } from '../../components/ScreenHeader'
 import { Colors } from '../../constants/colors'
 import { useAuth } from '../../hooks/useAuth'
+import { useHamburgerHeader } from '../../hooks/useHamburgerHeader'
 import { supabase } from '../../lib/supabase'
 import { Product } from '../../lib/types'
 
@@ -28,6 +29,7 @@ function productEmoji(name = '') {
 }
 
 export default function StockScreen() {
+  useHamburgerHeader()
   const { profile } = useAuth()
   const [products, setProducts] = useState<Product[]>([])
   const [refreshing, setRefreshing] = useState(false)

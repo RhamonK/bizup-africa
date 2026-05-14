@@ -16,11 +16,13 @@ import { Card } from '../../components/Card'
 import { Input } from '../../components/Input'
 import { Colors } from '../../constants/colors'
 import { useAuth } from '../../hooks/useAuth'
+import { useHamburgerHeader } from '../../hooks/useHamburgerHeader'
 import { supabase } from '../../lib/supabase'
 
 const JOB_TITLES = ['Vendeur/Vendeuse', 'Caissier/Caissière', 'Livreur/Livreuse', 'Gestionnaire stock', 'Superviseur']
 
 export default function TerrainProfilScreen() {
+  useHamburgerHeader()
   const { profile, refreshProfile, signOut } = useAuth()
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({

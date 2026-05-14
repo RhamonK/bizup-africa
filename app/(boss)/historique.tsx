@@ -2,10 +2,12 @@ import { useEffect, useState } from 'react'
 import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { Colors } from '../../constants/colors'
 import { useAuth } from '../../hooks/useAuth'
+import { useHamburgerHeader } from '../../hooks/useHamburgerHeader'
 import { supabase } from '../../lib/supabase'
 import { Product, Profile, Sale } from '../../lib/types'
 
 export default function BossHistoriqueScreen() {
+  useHamburgerHeader()
   const { profile } = useAuth()
   const [sales, setSales] = useState<Sale[]>([])
   const [products, setProducts] = useState<Product[]>([])

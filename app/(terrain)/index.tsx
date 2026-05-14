@@ -1,19 +1,16 @@
 import { useEffect, useState } from 'react'
-import { useNavigation } from 'expo-router'
-import { useLayoutEffect } from 'react'
 import {
   Alert, Modal, ScrollView, StyleSheet,
   Text, TouchableOpacity, View,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { AppDrawer, HamburgerBtn } from '../../components/AppDrawer'
 import { AvatarDisplay } from '../../components/AvatarDisplay'
 import { BarChart } from '../../components/BarChart'
 import { Button } from '../../components/Button'
 import { Input } from '../../components/Input'
 import { Colors } from '../../constants/colors'
 import { useAuth } from '../../hooks/useAuth'
-import { useDrawer } from '../../hooks/useDrawer'
+import { useHamburgerHeader } from '../../hooks/useHamburgerHeader'
 import { addToQueue, flushQueue } from '../../lib/offlineQueue'
 import { getSeasonAlert } from '../../lib/season'
 import { supabase } from '../../lib/supabase'
@@ -40,12 +37,7 @@ const PAY_OPTIONS: { key: PayMode; icon: string; label: string }[] = [
 
 export default function TerrainHome() {
   const { profile } = useAuth()
-  const { isOpen } = useDrawer()
-  const navigation = useNavigation()
-
-  useLayoutEffect(() => {
-    navigation.setOptions({ headerLeft: () => <HamburgerBtn /> })
-  }, [navigation])
+  useHamburgerHeader()
   const [sales, setSales] = useState<Sale[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [clients, setClients] = useState<Client[]>([])
@@ -152,17 +144,9 @@ export default function TerrainHome() {
     return sales.filter(s => new Date(s.created_at).getHours() >= h && new Date(s.created_at).getHours() < h + 2).reduce((sum, s) => sum + s.paid_amount, 0)
   })
 
-  const TERRAIN_NAV = [
-    { route: '/(terrain)/', label: 'Accueil' },
-    { route: '/(terrain)/stock', label: 'Stock', badge: lowStock.length || undefined },
-    { route: '/(terrain)/credits', label: 'Crédits clients', badge: clients.filter(c => c.total_debt > 0).length || undefined },
-    { route: '/(terrain)/historique', label: 'Mes ventes' },
-    { route: '/(terrain)/profil', label: 'Mon profil' },
-  ]
-
   return (
     <SafeAreaView style={styles.safe} edges={[]}>
-      <AppDrawer items={TERRAIN_NAV} activeRoute="/(terrain)/" accentColor={Colors.mint} />
+
       {/* Hero vert */}
       <View style={styles.hero}>
         <View style={styles.heroRow}>

@@ -15,6 +15,7 @@ import { Card } from '../../components/Card'
 import { Input } from '../../components/Input'
 import { Colors } from '../../constants/colors'
 import { useAuth } from '../../hooks/useAuth'
+import { useHamburgerHeader } from '../../hooks/useHamburgerHeader'
 import { supabase } from '../../lib/supabase'
 import { Client, PaymentPref, Product, Profile } from '../../lib/types'
 
@@ -35,6 +36,7 @@ const PAYMENT_CONFIG: Record<PaymentPref, string> = {
 const JOB_TITLES = ['Vendeur/Vendeuse', 'Caissier/Caissière', 'Livreur/Livreuse', 'Gestionnaire stock', 'Superviseur']
 
 export default function GestionScreen() {
+  useHamburgerHeader()
   const { profile } = useAuth()
   const [tab, setTab] = useState<Tab>('produits')
   const [products, setProducts] = useState<Product[]>([])

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { Colors } from '../../constants/colors'
 import { useAuth } from '../../hooks/useAuth'
+import { useHamburgerHeader } from '../../hooks/useHamburgerHeader'
 import { supabase } from '../../lib/supabase'
 
 interface MargeRow {
@@ -31,6 +32,7 @@ const barStyles = StyleSheet.create({
 })
 
 export default function MargesScreen() {
+  useHamburgerHeader()
   const { profile } = useAuth()
   const [rows, setRows] = useState<MargeRow[]>([])
   const [refreshing, setRefreshing] = useState(false)

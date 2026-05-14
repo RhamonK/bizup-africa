@@ -15,6 +15,7 @@ import { Card } from '../../components/Card'
 import { Input } from '../../components/Input'
 import { Colors } from '../../constants/colors'
 import { useAuth } from '../../hooks/useAuth'
+import { useHamburgerHeader } from '../../hooks/useHamburgerHeader'
 import { supabase } from '../../lib/supabase'
 import { PriceHistory, Product, Supplier } from '../../lib/types'
 
@@ -106,6 +107,7 @@ function AIInsightCard({ supplier, history }: { supplier: Supplier; history: Pri
 }
 
 export default function FournisseursScreen() {
+  useHamburgerHeader()
   const { profile } = useAuth()
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [products, setProducts] = useState<Product[]>([])

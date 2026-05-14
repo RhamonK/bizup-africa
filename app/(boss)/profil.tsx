@@ -16,9 +16,11 @@ import { Card } from '../../components/Card'
 import { Input } from '../../components/Input'
 import { Colors } from '../../constants/colors'
 import { useAuth } from '../../hooks/useAuth'
+import { useHamburgerHeader } from '../../hooks/useHamburgerHeader'
 import { supabase } from '../../lib/supabase'
 
 export default function BossProfilScreen() {
+  useHamburgerHeader()
   const { profile, refreshProfile, signOut } = useAuth()
   const [shop, setShop] = useState<{ name: string; city: string; country: string } | null>(null)
   const [saving, setSaving] = useState(false)

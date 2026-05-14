@@ -8,6 +8,7 @@ import { Button } from '../../components/Button'
 import { Input } from '../../components/Input'
 import { Colors } from '../../constants/colors'
 import { useAuth } from '../../hooks/useAuth'
+import { useHamburgerHeader } from '../../hooks/useHamburgerHeader'
 import { supabase } from '../../lib/supabase'
 import { Client } from '../../lib/types'
 
@@ -34,6 +35,7 @@ function ClientAvatar({ name, level }: { name: string; level: string }) {
 }
 
 export default function CreditsScreen() {
+  useHamburgerHeader()
   const { profile } = useAuth()
   const [clients, setClients] = useState<Client[]>([])
   const [allClients, setAllClients] = useState<Client[]>([])

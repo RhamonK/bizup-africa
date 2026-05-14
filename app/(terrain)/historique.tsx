@@ -3,6 +3,7 @@ import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } 
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Colors } from '../../constants/colors'
 import { useAuth } from '../../hooks/useAuth'
+import { useHamburgerHeader } from '../../hooks/useHamburgerHeader'
 import { supabase } from '../../lib/supabase'
 import { Product, Sale } from '../../lib/types'
 
@@ -13,6 +14,7 @@ const PAY_BADGE: Record<string, { label: string; color: string; bg: string }> = 
 }
 
 export default function HistoriqueScreen() {
+  useHamburgerHeader()
   const { profile } = useAuth()
   const [sales, setSales] = useState<Sale[]>([])
   const [products, setProducts] = useState<Product[]>([])

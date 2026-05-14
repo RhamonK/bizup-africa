@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router'
+import { usePathname, useRouter } from 'expo-router'
 import {
   Animated, Dimensions, ScrollView,
   StyleSheet, Text, TouchableOpacity,
@@ -18,16 +18,18 @@ export interface NavItem {
 
 interface Props {
   items: NavItem[]
-  activeRoute: string
+  activeRoute?: string  // optionnel — auto-détecté si absent
   accentColor?: string
 }
 
 const { width: SCREEN_W } = Dimensions.get('window')
 
-export function AppDrawer({ items, activeRoute, accentColor = Colors.mint }: Props) {
+export function AppDrawer({ items, activeRoute: activeProp, accentColor = Colors.mint }: Props) {
   const { isOpen, close, translateX } = useDrawer()
   const { profile, signOut } = useAuth()
   const router = useRouter()
+  const pathname = usePathname()
+  const activeRoute = activeProp ?? pathname
 
   if (!isOpen) return null
 
