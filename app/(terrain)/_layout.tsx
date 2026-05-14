@@ -1,36 +1,25 @@
-import { Drawer } from 'expo-router/drawer'
-import { DrawerContent } from '../../components/DrawerContent'
+import { Stack } from 'expo-router'
 import { Colors } from '../../constants/colors'
-
-const TERRAIN_NAV = [
-  { route: 'index',      label: 'Accueil',         icon: '⌂' },
-  { route: 'stock',      label: 'Stock',            icon: '▣' },
-  { route: 'credits',    label: 'Crédits clients',  icon: '◫' },
-  { route: 'historique', label: 'Mes ventes',       icon: '≡' },
-  { route: 'profil',     label: 'Mon profil',       icon: '○' },
-]
+import { DrawerProvider } from '../../hooks/useDrawer'
 
 export default function TerrainLayout() {
   return (
-    <Drawer
-      drawerContent={props => (
-        <DrawerContent items={TERRAIN_NAV} drawerProps={props} accentColor={Colors.mint} />
-      )}
-      screenOptions={{
-        headerStyle: { backgroundColor: Colors.forest, elevation: 0, shadowOpacity: 0 },
-        headerTintColor: '#fff',
-        headerTitleStyle: { fontWeight: '700', fontSize: 17 },
-        drawerStyle: { backgroundColor: '#0D1A12', width: 260 },
-        drawerActiveTintColor: Colors.mint,
-        drawerInactiveTintColor: 'rgba(255,255,255,0.5)',
-        swipeEnabled: true,
-      }}
-    >
-      <Drawer.Screen name="index"      options={{ title: 'Accueil' }} />
-      <Drawer.Screen name="stock"      options={{ title: 'Stock' }} />
-      <Drawer.Screen name="credits"    options={{ title: 'Crédits clients' }} />
-      <Drawer.Screen name="historique" options={{ title: 'Mes ventes' }} />
-      <Drawer.Screen name="profil"     options={{ title: 'Mon profil' }} />
-    </Drawer>
+    <DrawerProvider>
+      <Stack
+        screenOptions={{
+          headerStyle: { backgroundColor: Colors.forest },
+          headerTintColor: '#fff',
+          headerTitleStyle: { fontWeight: '700', fontSize: 17 },
+          headerShadowVisible: false,
+          contentStyle: { backgroundColor: Colors.background },
+        }}
+      >
+        <Stack.Screen name="index"      options={{ title: 'Accueil' }} />
+        <Stack.Screen name="stock"      options={{ title: 'Stock' }} />
+        <Stack.Screen name="credits"    options={{ title: 'Crédits clients' }} />
+        <Stack.Screen name="historique" options={{ title: 'Mes ventes' }} />
+        <Stack.Screen name="profil"     options={{ title: 'Mon profil' }} />
+      </Stack>
+    </DrawerProvider>
   )
 }
