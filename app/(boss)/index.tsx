@@ -71,10 +71,19 @@ export default function BossDashboard() {
   useEffect(() => {
     loadAll()
     if (!profile?.shop_id) return
+
+    // Nom de channel unique par shop pour éviter les doublons
+    const channelName = `boss-sales-${profile.shop_id}`
+    supabase.removeChannel(supabase.channel(channelName)) // nettoie si déjà existant
+
     const channel = supabase
-      .channel('boss-realtime')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'sales', filter: `shop_id=eq.${profile.shop_id}` }, () => loadAll())
+      .channel(channelName)
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'sales',
+        filter: `shop_id=eq.${profile.shop_id}`,
+      }, () => loadAll())
       .subscribe()
+
     return () => { supabase.removeChannel(channel) }
   }, [profile?.shop_id])
 

@@ -5,6 +5,7 @@ import { HamburgerBtn } from '../components/AppDrawer'
 export function useHamburgerHeader() {
   const navigation = useNavigation()
   useLayoutEffect(() => {
-    navigation.setOptions({ headerLeft: () => HamburgerBtn() })
+    // JSX obligatoire — appeler HamburgerBtn() directement viole les Rules of Hooks
+    navigation.setOptions({ headerLeft: () => <HamburgerBtn /> })
   }, [navigation])
 }
