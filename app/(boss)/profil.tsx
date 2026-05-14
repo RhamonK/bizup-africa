@@ -102,7 +102,7 @@ export default function BossProfilScreen() {
               <View style={{ flex: 1, marginLeft: 16 }}>
                 <Text style={styles.heroName}>{profile?.full_name}</Text>
                 <View style={styles.roleBadge}>
-                  <Text style={styles.roleText}>👑 Patronne / Boss</Text>
+                  <Text style={styles.roleText}>Gérant(e)</Text>
                 </View>
                 {shop && <Text style={styles.heroShop}>{shop.name} · {shop.city}</Text>}
               </View>

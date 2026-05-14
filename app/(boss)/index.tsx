@@ -3,6 +3,7 @@ import {
   Modal, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { AvatarDisplay } from '../../components/AvatarDisplay'
 import { BarChart } from '../../components/BarChart'
 import { Button } from '../../components/Button'
 import { Input } from '../../components/Input'
@@ -160,21 +161,21 @@ export default function BossDashboard() {
   const dynamicAlerts = [
     ...alertProducts.map(p => ({
       type: 'stock_faible' as const,
-      icon: '🚨',
+      icon: '!',
       style: 'red',
       text: `${p.name} — stock critique : ${p.stock_quantity} ${p.unit}`,
       sub: `Seuil : ${p.alert_threshold} · Commander maintenant`,
     })),
     ...(debtTotal > 0 ? [{
       type: 'impaye' as const,
-      icon: '💰',
+      icon: '$',
       style: 'amber',
       text: `${debtTotal.toLocaleString('fr-FR')} F d'impayés en cours`,
       sub: 'Vérifier les clients avec dettes',
     }] : []),
     {
       type: 'saison' as const,
-      icon: '📅',
+      icon: '↻',
       style: 'green',
       text: season.message,
       sub: season.detail,
@@ -191,12 +192,10 @@ export default function BossDashboard() {
       <View style={styles.heroDash}>
         {/* Ligne nom + date */}
         <View style={styles.heroTop}>
-          <View style={styles.heroAvatar}>
-            <Text style={{ fontSize: 22 }}>👩‍💼</Text>
-          </View>
+          <AvatarDisplay url={profile?.avatar_url ?? null} size={44} name={profile?.full_name} dark />
           <View style={{ flex: 1 }}>
             <Text style={styles.heroName}>{profile?.full_name ?? '—'}</Text>
-            <Text style={styles.heroSub}>🟢 En direct</Text>
+            <Text style={styles.heroSub}>Gérant(e) · En direct</Text>
           </View>
           <View style={styles.dateBadge}>
             <Text style={styles.dateBadgeText}>{dateLabel}</Text>
@@ -451,7 +450,7 @@ const styles = StyleSheet.create({
     paddingTop: 4,
   },
   heroTop: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
-  heroAvatar: { width: 44, height: 44, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' },
+  heroAvatar: { width: 44, height: 44, borderRadius: 14, overflow: 'hidden' },
   heroName: { fontSize: 18, fontWeight: '700', color: '#fff' },
   heroSub: { fontSize: 11, color: 'rgba(255,255,255,0.45)', marginTop: 1 },
   dateBadge: { backgroundColor: 'rgba(255,255,255,0.1)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', borderRadius: 20, paddingHorizontal: 11, paddingVertical: 5 },
