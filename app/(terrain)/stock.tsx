@@ -224,7 +224,7 @@ export default function StockScreen() {
 }
 
 const styles = StyleSheet.create({
-  alertRow: { flexDirection: 'row', gap: 12, padding: 12, backgroundColor: Colors.dangerLight, borderLeftWidth: 3, borderLeftColor: Colors.danger, borderRadius: 10, marginBottom: 8, alignItems: 'flex-start' },
+  alertRow: { flexDirection: 'row', gap: 12, padding: 12, backgroundColor: Colors.dangerLight, borderRadius: 10, marginBottom: 8, alignItems: 'flex-start' },
   alertIcon: { fontSize: 18 },
   alertText: { fontSize: 13, fontWeight: '600', color: Colors.danger },
   alertSub: { fontSize: 10, color: Colors.danger, opacity: 0.7, marginTop: 2 },

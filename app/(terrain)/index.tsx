@@ -544,7 +544,7 @@ const styles = StyleSheet.create({
   mainSellLabel: { fontSize: 18, fontWeight: '800', color: '#fff' },
   mainSellSub: { fontSize: 12, color: 'rgba(255,255,255,0.6)', marginTop: 2 },
 
-  alertStrip: { marginHorizontal: 16, marginBottom: 4, backgroundColor: Colors.dangerLight, borderRadius: 10, padding: 10, borderLeftWidth: 3, borderLeftColor: Colors.danger },
+  alertStrip: { marginHorizontal: 16, marginBottom: 4, backgroundColor: Colors.dangerLight, borderRadius: 10, padding: 10 },
   alertStripText: { fontSize: 13, fontWeight: '600', color: Colors.danger },
 
   // 3 boutons secondaires
