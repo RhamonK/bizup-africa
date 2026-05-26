@@ -44,7 +44,7 @@ export default function GestionScreen() {
   // ── Product modal ──
   const [productModal, setProductModal] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
-  const [pForm, setPForm] = useState({ name: '', unit: 'caisse', current_price: '', alert_threshold: '5' })
+  const [pForm, setPForm] = useState({ name: '', unit: 'caisse', current_price: '', alert_threshold: '5', stock_quantity: '0' })
   const [savingP, setSavingP] = useState(false)
 
   // ── Client modal ──
@@ -73,29 +73,46 @@ export default function GestionScreen() {
   const [debtClient, setDebtClient] = useState<Client | null>(null)
   const [newDebt, setNewDebt] = useState('')
 
+  // ── Livraison modal ──
+  const [livraisonModal, setLivraisonModal] = useState(false)
+  const [livProduct, setLivProduct] = useState<Product | null>(null)
+  const [addQty, setAddQty] = useState('')
+  const [costPerUnit, setCostPerUnit] = useState('')
+  const [isNewProduct, setIsNewProduct] = useState(false)
+  const [newLivName, setNewLivName] = useState('')
+  const [newLivUnit, setNewLivUnit] = useState('caisse')
+  const [suppliers, setSuppliers] = useState<any[]>([])
+  const [selectedSupplier, setSelectedSupplier] = useState<string | null>(null)
+  const [driverName, setDriverName] = useState('')
+  const [driverPhone, setDriverPhone] = useState('')
+  const [deliveryNotes, setDeliveryNotes] = useState('')
+  const [savingL, setSavingL] = useState(false)
+
   useEffect(() => { loadAll() }, [])
 
   async function loadAll() {
     if (!profile?.shop_id) return
-    const [pRes, cRes, eRes] = await Promise.all([
+    const [pRes, cRes, eRes, sRes] = await Promise.all([
       supabase.from('products').select('*').eq('shop_id', profile.shop_id).order('name'),
       supabase.from('clients').select('*').eq('shop_id', profile.shop_id).order('name'),
       supabase.from('profiles').select('*').eq('shop_id', profile.shop_id).eq('role', 'terrain').order('full_name'),
+      supabase.from('suppliers').select('id, name').eq('shop_id', profile.shop_id),
     ])
     if (pRes.data) setProducts(pRes.data)
     if (cRes.data) setClients(cRes.data)
     if (eRes.data) setEmployees(eRes.data)
+    if (sRes.data) setSuppliers(sRes.data)
   }
 
   // ── PRODUITS ─────────────────────────────────────────────────────────────
   async function saveProduct() {
     if (!pForm.name.trim() || !pForm.current_price || !profile?.shop_id) return
     setSavingP(true)
-    const payload = { name: pForm.name.trim(), unit: pForm.unit, current_price: parseFloat(pForm.current_price), alert_threshold: parseFloat(pForm.alert_threshold) || 5 }
+    const payload = { name: pForm.name.trim(), unit: pForm.unit, current_price: parseFloat(pForm.current_price), alert_threshold: parseFloat(pForm.alert_threshold) || 5, stock_quantity: parseFloat(pForm.stock_quantity) || 0 }
     if (editingProduct) {
       await supabase.from('products').update(payload).eq('id', editingProduct.id)
     } else {
-      await supabase.from('products').insert({ ...payload, shop_id: profile.shop_id, stock_quantity: 0, alert_days_without_sale: 2 })
+      await supabase.from('products').insert({ ...payload, shop_id: profile.shop_id, alert_days_without_sale: 2 })
     }
     setSavingP(false); setProductModal(false); loadAll()
   }
@@ -147,6 +164,52 @@ export default function GestionScreen() {
     if (isNaN(val) || val < 0) { Alert.alert('Erreur', 'Montant invalide.'); return }
     await supabase.from('clients').update({ total_debt: val }).eq('id', debtClient.id)
     setDebtModal(false); setDebtClient(null); setNewDebt(''); loadAll()
+  }
+
+  // ── LIVRAISONS ───────────────────────────────────────────────────────────
+  async function handleLivraison() {
+    if (!profile?.shop_id) return
+    setSavingL(true)
+    try {
+      if (isNewProduct) {
+        if (!newLivName.trim()) { Alert.alert('Erreur', 'Donne un nom au produit.'); return }
+        const { data: p } = await supabase.from('products').insert({
+          shop_id: profile.shop_id, name: newLivName.trim(), unit: newLivUnit,
+          current_price: costPerUnit ? parseFloat(costPerUnit) * 1.3 : 0,
+          stock_quantity: parseFloat(addQty) || 0, alert_threshold: 5, alert_days_without_sale: 2,
+        }).select().single()
+        if (p && addQty) {
+          await supabase.from('stock_entries').insert({
+            shop_id: profile.shop_id, product_id: p.id,
+            quantity: parseFloat(addQty), cost_per_unit: parseFloat(costPerUnit) || 0,
+            date: new Date().toISOString().split('T')[0],
+            supplier_id: selectedSupplier || null,
+            driver_name: driverName || null, driver_phone: driverPhone || null, notes: deliveryNotes || null,
+          })
+        }
+      } else {
+        if (!livProduct || !addQty) { Alert.alert('Erreur', 'Sélectionne un produit et la quantité.'); return }
+        const newQ = livProduct.stock_quantity + parseFloat(addQty)
+        await Promise.all([
+          supabase.from('products').update({ stock_quantity: newQ }).eq('id', livProduct.id),
+          supabase.from('stock_entries').insert({
+            shop_id: profile.shop_id, product_id: livProduct.id,
+            quantity: parseFloat(addQty), cost_per_unit: parseFloat(costPerUnit) || 0,
+            date: new Date().toISOString().split('T')[0],
+            supplier_id: selectedSupplier || null,
+            driver_name: driverName || null, driver_phone: driverPhone || null, notes: deliveryNotes || null,
+          }),
+        ])
+      }
+      Alert.alert('✅ Arrivage enregistré', 'Stock mis à jour.')
+      setLivraisonModal(false); resetLivraisonForm(); loadAll()
+    } finally { setSavingL(false) }
+  }
+
+  function resetLivraisonForm() {
+    setLivProduct(null); setAddQty(''); setCostPerUnit('')
+    setIsNewProduct(false); setNewLivName(''); setNewLivUnit('caisse')
+    setSelectedSupplier(null); setDriverName(''); setDriverPhone(''); setDeliveryNotes('')
   }
 
   // ── EMPLOYÉS ─────────────────────────────────────────────────────────────
@@ -237,7 +300,10 @@ export default function GestionScreen() {
       {/* ── PRODUITS ── */}
       {tab === 'produits' && (
         <ScrollView contentContainerStyle={styles.list}>
-          <Button title="+ Nouveau produit" onPress={() => { setEditingProduct(null); setPForm({ name: '', unit: 'caisse', current_price: '', alert_threshold: '5' }); setProductModal(true) }} style={{ marginBottom: 12 }} />
+          <Button title="+ Nouveau produit" onPress={() => { setEditingProduct(null); setPForm({ name: '', unit: 'caisse', current_price: '', alert_threshold: '5', stock_quantity: '0' }); setProductModal(true) }} style={{ marginBottom: 12 }} />
+          <TouchableOpacity style={styles.livraisonBtn} onPress={() => setLivraisonModal(true)}>
+            <Text style={styles.livraisonBtnText}>🚚 Enregistrer une livraison</Text>
+          </TouchableOpacity>
           {products.map(p => (
             <Card key={p.id} style={styles.row} padding={14}>
               <View style={{ flex: 1 }}>
@@ -245,7 +311,7 @@ export default function GestionScreen() {
                 <Text style={styles.rowSub}>{p.current_price.toLocaleString('fr-FR')} F/{p.unit} · Stock: {p.stock_quantity}</Text>
               </View>
               <View style={styles.actions}>
-                <TouchableOpacity style={styles.editBtn} onPress={() => { setEditingProduct(p); setPForm({ name: p.name, unit: p.unit, current_price: p.current_price.toString(), alert_threshold: p.alert_threshold.toString() }); setProductModal(true) }}>
+                <TouchableOpacity style={styles.editBtn} onPress={() => { setEditingProduct(p); setPForm({ name: p.name, unit: p.unit, current_price: p.current_price.toString(), alert_threshold: p.alert_threshold.toString(), stock_quantity: String(p.stock_quantity ?? 0) }); setProductModal(true) }}>
                   <Text>✏️</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.deleteBtn} onPress={() => deleteProduct(p)}>
@@ -344,6 +410,7 @@ export default function GestionScreen() {
             <Input label="Unité" value={pForm.unit} onChangeText={t => setPForm(f => ({ ...f, unit: t }))} placeholder="caisse / kg / sac" />
             <Input label="Prix de vente (FCFA)" value={pForm.current_price} onChangeText={t => setPForm(f => ({ ...f, current_price: t }))} keyboardType="numeric" />
             <Input label="Seuil d'alerte stock" value={pForm.alert_threshold} onChangeText={t => setPForm(f => ({ ...f, alert_threshold: t }))} keyboardType="numeric" hint="Alerte quand le stock descend sous ce seuil" />
+            <Input label="Stock actuel (override)" value={pForm.stock_quantity} onChangeText={t => setPForm(f => ({ ...f, stock_quantity: t }))} keyboardType="numeric" hint="Modifie directement le stock sans passer par une livraison" />
             <Button title={editingProduct ? 'Enregistrer' : 'Créer'} onPress={saveProduct} loading={savingP} size="lg" style={{ marginTop: 8 }} />
           </ScrollView>
         </SafeAreaView>
@@ -448,6 +515,63 @@ export default function GestionScreen() {
         </SafeAreaView>
       </Modal>
 
+      {/* ── LIVRAISON MODAL ── */}
+      <Modal visible={livraisonModal} animationType="slide" presentationStyle="pageSheet">
+        <SafeAreaView style={{ flex: 1, backgroundColor: Colors.background }}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Enregistrer une livraison</Text>
+            <TouchableOpacity onPress={() => { setLivraisonModal(false); resetLivraisonForm() }}>
+              <Text style={styles.close}>✕</Text>
+            </TouchableOpacity>
+          </View>
+          <ScrollView style={{ padding: 20 }} keyboardShouldPersistTaps="handled">
+            <View style={styles.toggleRow}>
+              {['Produit existant', 'Nouveau produit'].map((t, i) => (
+                <TouchableOpacity key={t} style={[styles.toggle, isNewProduct === (i === 1) && styles.toggleActive]} onPress={() => setIsNewProduct(i === 1)}>
+                  <Text style={[styles.toggleText, isNewProduct === (i === 1) && styles.toggleTextActive]}>{t}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            {isNewProduct ? (
+              <>
+                <Input label="Nom du produit" value={newLivName} onChangeText={setNewLivName} placeholder="ex: Ignames" />
+                <Input label="Unité" value={newLivUnit} onChangeText={setNewLivUnit} placeholder="caisse / kg / sac" />
+              </>
+            ) : (
+              <>
+                <Text style={styles.fieldLabel}>Sélectionne le produit</Text>
+                <View style={styles.prodGrid}>
+                  {products.map(p => (
+                    <TouchableOpacity key={p.id} style={[styles.prodChip, livProduct?.id === p.id && styles.prodChipActive]} onPress={() => setLivProduct(p)}>
+                      <Text style={[styles.prodChipText, livProduct?.id === p.id && { color: '#fff' }]}>{p.name}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </>
+            )}
+            <Input label="Quantité reçue" value={addQty} onChangeText={setAddQty} keyboardType="numeric" placeholder="ex: 20" />
+            <Input label="Prix d'achat / unité (FCFA)" value={costPerUnit} onChangeText={setCostPerUnit} keyboardType="numeric" placeholder="ex: 2900" hint="Utilisé pour calculer ta marge" />
+            {suppliers.length > 0 && (
+              <>
+                <Text style={styles.fieldLabel}>Fournisseur (optionnel)</Text>
+                <View style={styles.prodGrid}>
+                  {suppliers.map((s: any) => (
+                    <TouchableOpacity key={s.id} style={[styles.prodChip, selectedSupplier === s.id && styles.prodChipActive]} onPress={() => setSelectedSupplier(selectedSupplier === s.id ? null : s.id)}>
+                      <Text style={[styles.prodChipText, selectedSupplier === s.id && { color: '#fff' }]}>{s.name}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </>
+            )}
+            <Text style={styles.sectionHeader}>🚚 Chauffeur / Livreur</Text>
+            <Input label="Nom du chauffeur" value={driverName} onChangeText={setDriverName} placeholder="ex: Kofi Mensah" />
+            <Input label="Téléphone chauffeur" value={driverPhone} onChangeText={setDriverPhone} keyboardType="phone-pad" placeholder="+228 90000000" />
+            <Input label="Notes (optionnel)" value={deliveryNotes} onChangeText={setDeliveryNotes} placeholder="ex: Qualité bonne, 5 caisses abîmées" multiline numberOfLines={2} style={{ height: 70, textAlignVertical: 'top', paddingTop: 10 }} />
+            <Button title="Enregistrer l'arrivage ✓" onPress={handleLivraison} loading={savingL} size="lg" style={{ marginTop: 8, backgroundColor: Colors.forest }} />
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
+
       {/* ── DEBT OVERRIDE MODAL ── */}
       <Modal visible={debtModal} animationType="slide" presentationStyle="formSheet">
         <SafeAreaView style={{ flex: 1, backgroundColor: Colors.background }}>
@@ -498,4 +622,16 @@ const styles = StyleSheet.create({
   chipText: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary },
   hint: { fontSize: 12, color: Colors.textTertiary, marginBottom: 12 },
   error: { color: Colors.danger, fontSize: 13, marginBottom: 8 },
+  livraisonBtn: { backgroundColor: Colors.forest + '18', borderRadius: 12, padding: 12, alignItems: 'center', marginBottom: 12, borderWidth: 1, borderColor: Colors.forest + '40' },
+  livraisonBtnText: { color: Colors.forest, fontWeight: '700', fontSize: 14 },
+  toggleRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
+  toggle: { flex: 1, paddingVertical: 10, borderRadius: 10, borderWidth: 1.5, borderColor: Colors.border, alignItems: 'center' },
+  toggleActive: { borderColor: Colors.forest, backgroundColor: Colors.successLight },
+  toggleText: { fontWeight: '600', color: Colors.textSecondary, fontSize: 13 },
+  toggleTextActive: { color: Colors.forest },
+  prodGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
+  prodChip: { borderWidth: 1.5, borderColor: Colors.border, borderRadius: 10, padding: 10, minWidth: '45%', flex: 1 },
+  prodChipActive: { backgroundColor: Colors.forest, borderColor: Colors.forest },
+  prodChipText: { fontSize: 14, fontWeight: '600', color: Colors.text },
+  sectionHeader: { fontSize: 14, fontWeight: '700', color: Colors.text, marginTop: 8, marginBottom: 8 },
 })
