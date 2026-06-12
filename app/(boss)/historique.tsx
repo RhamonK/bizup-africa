@@ -3,8 +3,11 @@ import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } 
 import { Colors } from '../../constants/colors'
 import { useAuth } from '../../hooks/useAuth'
 import { useHamburgerHeader } from '../../hooks/useHamburgerHeader'
-import { supabase } from '../../lib/supabase'
+import { fmtQty } from '../../utils/helpers'
 import { Product, Profile, Sale } from '../../lib/types'
+import { getProducts } from '../../services/products'
+import { getSalesWithCreator } from '../../services/sales'
+import { getEmployees } from '../../services/profiles'
 
 export default function BossHistoriqueScreen() {
   useHamburgerHeader()
@@ -17,15 +20,14 @@ export default function BossHistoriqueScreen() {
   const [filterPay, setFilterPay] = useState('all')
   const [refreshing, setRefreshing] = useState(false)
 
-  useEffect(() => { loadData() }, [])
+  useEffect(() => { loadData() }, [profile?.shop_id])
 
   async function loadData() {
     if (!profile?.shop_id) return
     const [salesRes, prodsRes, empsRes] = await Promise.all([
-      supabase.from('sales').select('*, items:sale_items(*, product:products(*)), client:clients(*), creator:profiles(full_name, job_title)')
-        .eq('shop_id', profile.shop_id).order('created_at', { ascending: false }).limit(100),
-      supabase.from('products').select('*').eq('shop_id', profile.shop_id),
-      supabase.from('profiles').select('*').eq('shop_id', profile.shop_id).eq('role', 'terrain'),
+      getSalesWithCreator(profile.shop_id, 100),
+      getProducts(profile.shop_id),
+      getEmployees(profile.shop_id),
     ])
     if (salesRes.data) setSales(salesRes.data)
     if (prodsRes.data) setProducts(prodsRes.data)
@@ -110,7 +112,7 @@ export default function BossHistoriqueScreen() {
               <View key={sale.id} style={styles.card}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.cardName}>
-                    {sale.items?.map(i => `${i.quantity} ${i.product?.unit ?? ''} ${i.product?.name ?? ''}`).join(', ') || '—'}
+                    {sale.items?.map(i => `${fmtQty(i.quantity)} ${i.product?.unit ?? ''} ${i.product?.name ?? ''}`).join(', ') || '—'}
                   </Text>
                   <Text style={styles.cardSub}>
                     {sale.client?.name ?? 'Comptant'} · {(sale.creator as any)?.full_name ?? '—'} · {new Date(sale.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}

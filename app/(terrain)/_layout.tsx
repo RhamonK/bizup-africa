@@ -8,7 +8,7 @@ const TERRAIN_NAV = [
   { route: '/(terrain)/',          label: 'Accueil' },
   { route: '/(terrain)/stock',     label: 'Stock' },
   { route: '/(terrain)/credits',   label: 'Crédits clients' },
-  { route: '/(terrain)/historique', label: 'Mes ventes' },
+  { route: '/(terrain)/historique', label: 'Historique ventes' },
   { route: '/(terrain)/profil',    label: 'Mon profil' },
 ]
 
@@ -27,7 +27,8 @@ function TerrainContent() {
         <Stack.Screen name="index"      options={{ title: 'Accueil' }} />
         <Stack.Screen name="stock"      options={{ title: 'Stock' }} />
         <Stack.Screen name="credits"    options={{ title: 'Crédits clients' }} />
-        <Stack.Screen name="historique" options={{ title: 'Mes ventes' }} />
+        <Stack.Screen name="fiche-client" options={{ title: 'Fiche client' }} />
+        <Stack.Screen name="historique" options={{ title: 'Historique ventes' }} />
         <Stack.Screen name="profil"     options={{ title: 'Mon profil' }} />
       </Stack>
       {/* Drawer persistant sur tous les écrans */}

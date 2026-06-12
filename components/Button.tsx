@@ -48,12 +48,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   primary: {
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.forest,   // vert forêt naturel
   },
   secondary: {
-    backgroundColor: Colors.primaryLight,
-    borderWidth: 1,
-    borderColor: Colors.primary,
+    backgroundColor: Colors.successLight,
+    borderWidth: 1.5,
+    borderColor: Colors.forest,
   },
   danger: {
     backgroundColor: Colors.danger,
@@ -72,7 +72,7 @@ const styles = StyleSheet.create({
 
   text: { fontWeight: '600' },
   text_primary: { color: '#fff' },
-  text_secondary: { color: Colors.primaryDark },
+  text_secondary: { color: Colors.forest },
   text_danger: { color: '#fff' },
   text_ghost: { color: Colors.text },
 

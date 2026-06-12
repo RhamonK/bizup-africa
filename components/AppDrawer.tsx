@@ -124,6 +124,29 @@ export function HamburgerBtn() {
   )
 }
 
+/** Bouton avatar/nom dans le header droit → navigue vers le profil */
+export function ProfileHeaderBtn() {
+  const { profile } = useAuth()
+  const router = useRouter()
+
+  const profilRoute =
+    profile?.role === 'terrain'  ? '/(terrain)/profil' :
+    profile?.role === 'diaspora' ? null :
+    '/(boss)/profil'
+
+  if (!profilRoute) return null
+
+  return (
+    <TouchableOpacity
+      onPress={() => router.push(profilRoute as any)}
+      style={styles.profileBtn}
+      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+    >
+      <AvatarDisplay url={profile?.avatar_url ?? null} size={30} name={profile?.full_name} dark />
+    </TouchableOpacity>
+  )
+}
+
 const styles = StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFillObject,
@@ -159,12 +182,13 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   itemActive: { backgroundColor: 'rgba(46,204,138,0.08)' },
-  activeBar: { position: 'absolute', right: 0, top: 6, bottom: 6, width: 3, borderRadius: 2 },
-  itemLabel: { flex: 1, fontSize: 14, color: 'rgba(255,255,255,0.7)', fontWeight: '500' },
-  badge: { minWidth: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5 },
-  badgeText: { color: '#fff', fontSize: 10, fontWeight: '800' },
-  logout: { padding: 20, paddingVertical: 16 },
-  logoutText: { fontSize: 14, color: 'rgba(255,255,255,0.35)', fontWeight: '500' },
-  hamburger: { padding: 4, gap: 5, justifyContent: 'center', marginLeft: 4 },
-  bar: { width: 22, height: 2, backgroundColor: '#fff', borderRadius: 1 },
+  itemLabel:   { fontSize: 14, color: 'rgba(255,255,255,0.75)', fontWeight: '500', flex: 1 },
+  activeBar:   { position: 'absolute', right: 0, top: 8, bottom: 8, width: 3, borderRadius: 2 },
+  logout:      { paddingHorizontal: 20, paddingVertical: 16 },
+  logoutText:  { fontSize: 14, color: 'rgba(255,255,255,0.4)', fontWeight: '500' },
+  badge:       { minWidth: 18, height: 18, borderRadius: 9, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
+  badgeText:   { fontSize: 10, fontWeight: '800', color: '#fff' },
+  hamburger:   { marginLeft: 8, padding: 6, gap: 4 },
+  bar:         { width: 22, height: 2, borderRadius: 2, backgroundColor: '#fff' },
+  profileBtn:  { marginRight: 6, padding: 2 },
 })

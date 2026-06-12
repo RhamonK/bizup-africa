@@ -10,8 +10,12 @@ import { ScreenHeader } from '../../components/ScreenHeader'
 import { Colors } from '../../constants/colors'
 import { useAuth } from '../../hooks/useAuth'
 import { useHamburgerHeader } from '../../hooks/useHamburgerHeader'
+import { isOnline } from '../../lib/network'
+import { addStockEntryToQueue, flushStockQueue, getStockQueue } from '../../lib/offlineQueue'
 import { supabase } from '../../lib/supabase'
-import { Product } from '../../lib/types'
+import { Product, Supplier } from '../../lib/types'
+import { fmtQty } from '../../utils/helpers'
+import { ProductImage } from '../../components/ProductImage'
 
 function stockStatus(p: Product) {
   if (p.stock_quantity <= 0) return { label: 'Rupture ⚠', style: 'crit' as const, color: Colors.danger, bg: Colors.dangerLight }
@@ -20,13 +24,6 @@ function stockStatus(p: Product) {
   return { label: `${p.stock_quantity} ${p.unit}`, style: 'ok' as const, color: Colors.forest, bg: Colors.successLight }
 }
 
-function productEmoji(name = '') {
-  const n = name.toLowerCase()
-  if (n.includes('tomate')) return { emoji: '🍅', bg: '#FFF3E0' }
-  if (n.includes('piment')) return { emoji: '🌶️', bg: '#FDF0EE' }
-  if (n.includes('oignon')) return { emoji: '🧅', bg: '#F5F0E8' }
-  return { emoji: '🌿', bg: '#E8F5EE' }
-}
 
 export default function StockScreen() {
   useHamburgerHeader()
@@ -35,22 +32,26 @@ export default function StockScreen() {
   const [refreshing, setRefreshing] = useState(false)
   const [modal, setModal] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [pendingStock, setPendingStock] = useState(0)
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [addQty, setAddQty] = useState('')
   const [costPerUnit, setCostPerUnit] = useState('')
   const [isNewProduct, setIsNewProduct] = useState(false)
   const [newName, setNewName] = useState('')
   const [newUnit, setNewUnit] = useState('caisse')
-  const [suppliers, setSuppliers] = useState<any[]>([])
+  const [suppliers, setSuppliers] = useState<Pick<Supplier, 'id' | 'name' | 'phone'>[]>([])
   const [selectedSupplier, setSelectedSupplier] = useState<string | null>(null)
   const [driverName, setDriverName] = useState('')
   const [driverPhone, setDriverPhone] = useState('')
   const [deliveryNotes, setDeliveryNotes] = useState('')
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [profile?.shop_id])
 
   async function load() {
     if (!profile?.shop_id) return
+    await flushStockQueue(profile.shop_id)
+    const remaining = await getStockQueue()
+    setPendingStock(remaining.length)
     const [prodRes, supRes] = await Promise.all([
       supabase.from('products').select('*').eq('shop_id', profile.shop_id).order('name'),
       supabase.from('suppliers').select('id, name, phone').eq('shop_id', profile.shop_id),
@@ -67,25 +68,41 @@ export default function StockScreen() {
     try {
       if (isNewProduct) {
         if (!newName.trim()) { Alert.alert('Erreur', 'Donne un nom au produit.'); return }
-        const { data: p } = await supabase.from('products').insert({
+        const { data: p, error: prodErr } = await supabase.from('products').insert({
           shop_id: profile.shop_id, name: newName.trim(), unit: newUnit,
           current_price: costPerUnit ? parseFloat(costPerUnit) * 1.3 : 0,
           stock_quantity: parseFloat(addQty) || 0, alert_threshold: 5, alert_days_without_sale: 2,
         }).select().single()
-        if (p && addQty) {
-          await supabase.from('stock_entries').insert({
+        if (prodErr || !p) { Alert.alert('Erreur', 'Le produit n\'a pas pu être créé. Vérifie ta connexion et réessaie.'); return }
+        if (addQty) {
+          const { error: entryErr } = await supabase.from('stock_entries').insert({
             shop_id: profile.shop_id, product_id: p.id,
             quantity: parseFloat(addQty), cost_per_unit: parseFloat(costPerUnit) || 0,
             date: new Date().toISOString().split('T')[0],
             supplier_id: selectedSupplier || null,
             driver_name: driverName || null, driver_phone: driverPhone || null, notes: deliveryNotes || null,
           })
+          if (entryErr) { Alert.alert('Erreur', 'Produit créé mais l\'arrivage n\'a pas été enregistré. Réessaie depuis la liste.'); return }
         }
       } else {
         if (!selectedProduct || !addQty) { Alert.alert('Erreur', 'Sélectionne un produit et la quantité.'); return }
-        const newQ = selectedProduct.stock_quantity + parseFloat(addQty)
-        await Promise.all([
-          supabase.from('products').update({ stock_quantity: newQ }).eq('id', selectedProduct.id),
+        if (!(await isOnline())) {
+          await addStockEntryToQueue({
+            shop_id: profile.shop_id,
+            product_id: selectedProduct.id,
+            quantity: parseFloat(addQty),
+            cost_per_unit: parseFloat(costPerUnit) || 0,
+            date: new Date().toISOString().split('T')[0],
+            supplier_id: selectedSupplier || null,
+          })
+          setPendingStock(p => p + 1)
+          Alert.alert('⏳ Livraison enregistrée hors-ligne', 'Elle sera synchronisée au retour du réseau.')
+          setModal(false); resetForm()
+          return
+        }
+        // RPC atomique : pas de lecture → addition → écriture (perte d'arrivage si 2 agents simultanés)
+        const [stockRes, entryRes] = await Promise.all([
+          supabase.rpc('increment_stock', { p_id: selectedProduct.id, qty: parseFloat(addQty) }),
           supabase.from('stock_entries').insert({
             shop_id: profile.shop_id, product_id: selectedProduct.id,
             quantity: parseFloat(addQty), cost_per_unit: parseFloat(costPerUnit) || 0,
@@ -94,6 +111,10 @@ export default function StockScreen() {
             driver_name: driverName || null, driver_phone: driverPhone || null, notes: deliveryNotes || null,
           }),
         ])
+        if (stockRes.error || entryRes.error) {
+          Alert.alert('Erreur', 'L\'arrivage n\'a pas pu être enregistré. Vérifie ta connexion et réessaie.')
+          return
+        }
       }
       Alert.alert('✅ Arrivage enregistré', `Stock mis à jour.`)
       setModal(false); resetForm(); load()
@@ -115,6 +136,12 @@ export default function StockScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false) }} />}
         contentContainerStyle={{ padding: 16 }}
       >
+        {pendingStock > 0 && (
+          <View style={styles.syncBadge}>
+            <Text style={styles.syncText}>⏳ {pendingStock} livraison(s) en attente de sync réseau</Text>
+          </View>
+        )}
+
         {/* Alertes critiques */}
         {criticals.map(p => (
           <View key={p.id} style={styles.alertRow}>
@@ -136,12 +163,9 @@ export default function StockScreen() {
           ) : (
             products.map(p => {
               const status = stockStatus(p)
-              const { emoji, bg } = productEmoji(p.name)
               return (
                 <View key={p.id} style={styles.prodRow}>
-                  <View style={[styles.prodEmoji, { backgroundColor: bg }]}>
-                    <Text style={{ fontSize: 22 }}>{emoji}</Text>
-                  </View>
+                  <ProductImage name={p.name} photoUrl={p.photo_url} size={44} borderRadius={12} />
                   <View style={{ flex: 1 }}>
                     <Text style={styles.prodName}>{p.name}</Text>
                     <Text style={styles.prodSub}>Seuil : {p.alert_threshold} {p.unit}</Text>
@@ -226,7 +250,7 @@ export default function StockScreen() {
 }
 
 const styles = StyleSheet.create({
-  alertRow: { flexDirection: 'row', gap: 12, padding: 12, backgroundColor: Colors.dangerLight, borderLeftWidth: 3, borderLeftColor: Colors.danger, borderRadius: 10, marginBottom: 8, alignItems: 'flex-start' },
+  alertRow: { flexDirection: 'row', gap: 12, padding: 12, backgroundColor: Colors.dangerLight, borderRadius: 10, marginBottom: 8, alignItems: 'flex-start' },
   alertIcon: { fontSize: 18 },
   alertText: { fontSize: 13, fontWeight: '600', color: Colors.danger },
   alertSub: { fontSize: 10, color: Colors.danger, opacity: 0.7, marginTop: 2 },
@@ -253,4 +277,6 @@ const styles = StyleSheet.create({
   prodChipActive: { backgroundColor: Colors.forest, borderColor: Colors.forest },
   prodChipText: { fontSize: 14, fontWeight: '600', color: Colors.text },
   sectionHeader: { fontSize: 14, fontWeight: '700', color: Colors.text, marginTop: 8, marginBottom: 8 },
+  syncBadge: { backgroundColor: Colors.warningLight, borderRadius: 8, padding: 10, marginBottom: 8, alignItems: 'center' },
+  syncText: { fontSize: 12, color: Colors.amber, fontWeight: '600' },
 })

@@ -30,6 +30,8 @@ function BossContent() {
         <Stack.Screen name="index"        options={{ title: 'Tableau de bord' }} />
         <Stack.Screen name="gestion"      options={{ title: 'Gestion' }} />
         <Stack.Screen name="fournisseurs" options={{ title: 'Fournisseurs' }} />
+        <Stack.Screen name="fournisseur-form" options={{ title: 'Nouveau fournisseur' }} />
+        <Stack.Screen name="fiche-client"    options={{ title: 'Fiche client' }} />
         <Stack.Screen name="historique"   options={{ title: 'Historique des ventes' }} />
         <Stack.Screen name="marges"       options={{ title: 'Marges & Finances' }} />
         <Stack.Screen name="employes"     options={{ title: 'Équipe' }} />

@@ -4,8 +4,11 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { Colors } from '../../constants/colors'
 import { useAuth } from '../../hooks/useAuth'
 import { useHamburgerHeader } from '../../hooks/useHamburgerHeader'
-import { supabase } from '../../lib/supabase'
 import { Product, Sale } from '../../lib/types'
+import { fmtQty } from '../../utils/helpers'
+import { getProducts } from '../../services/products'
+import { getSalesWithCreator } from '../../services/sales'
+import { ProductImage } from '../../components/ProductImage'
 
 const PAY_BADGE: Record<string, { label: string; color: string; bg: string }> = {
   cash: { label: 'Cash', color: Colors.forest, bg: Colors.successLight },
@@ -21,18 +24,13 @@ export default function HistoriqueScreen() {
   const [filterProduct, setFilterProduct] = useState<string>('all')
   const [refreshing, setRefreshing] = useState(false)
 
-  useEffect(() => { loadData() }, [])
+  useEffect(() => { loadData() }, [profile?.shop_id])
 
   async function loadData() {
     if (!profile?.shop_id) return
     const [salesRes, prodsRes] = await Promise.all([
-      supabase.from('sales')
-        .select('*, items:sale_items(*, product:products(*)), client:clients(*)')
-        .eq('shop_id', profile.shop_id)
-        .eq('created_by', profile.id)
-        .order('created_at', { ascending: false })
-        .limit(50),
-      supabase.from('products').select('*').eq('shop_id', profile.shop_id),
+      getSalesWithCreator(profile.shop_id, 100),
+      getProducts(profile.shop_id),
     ])
     if (salesRes.data) setSales(salesRes.data)
     if (prodsRes.data) setProducts(prodsRes.data)
@@ -44,14 +42,6 @@ export default function HistoriqueScreen() {
 
   const totalToday = filtered.filter(s => s.date === new Date().toISOString().split('T')[0]).reduce((sum, s) => sum + s.paid_amount, 0)
   const totalAll = filtered.reduce((sum, s) => sum + s.paid_amount, 0)
-
-  function getEmoji(name?: string) {
-    if (!name) return '🌿'
-    if (name.toLowerCase().includes('tomate')) return '🍅'
-    if (name.toLowerCase().includes('piment')) return '🌶️'
-    if (name.toLowerCase().includes('oignon')) return '🧅'
-    return '🌿'
-  }
 
   // Grouper par date
   const grouped: Record<string, Sale[]> = {}
@@ -102,16 +92,14 @@ export default function HistoriqueScreen() {
               {new Date(date + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
             </Text>
             {grouped[date].map(sale => {
-              const badge = PAY_BADGE[sale.items?.[0] ? 'cash' : 'cash'] ?? PAY_BADGE.cash
+              const badge = PAY_BADGE[sale.pay_mode ?? 'cash'] ?? PAY_BADGE.cash
               const firstItem = sale.items?.[0]
               return (
                 <View key={sale.id} style={styles.saleCard}>
-                  <View style={[styles.saleEmoji, { backgroundColor: Colors.surfaceSecondary }]}>
-                    <Text style={{ fontSize: 20 }}>{getEmoji(firstItem?.product?.name)}</Text>
-                  </View>
-                  <View style={{ flex: 1 }}>
+                  <ProductImage name={firstItem?.product?.name ?? ''} photoUrl={(firstItem?.product as any)?.photo_url} size={44} borderRadius={12} />
+                  <View style={{ flex: 1, marginLeft: 10 }}>
                     <Text style={styles.saleName}>
-                      {sale.items?.map(i => `${i.quantity} ${i.product?.unit ?? ''} ${i.product?.name ?? ''}`).join(', ')}
+                      {sale.items?.map(i => `${fmtQty(i.quantity)} ${i.product?.unit ?? ''} ${i.product?.name ?? ''}`).join(', ')}
                     </Text>
                     <Text style={styles.saleDetail}>
                       {sale.client?.name ?? 'Comptant'} · {new Date(sale.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}

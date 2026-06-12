@@ -3,7 +3,9 @@ import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native
 import { Colors } from '../../constants/colors'
 import { useAuth } from '../../hooks/useAuth'
 import { useHamburgerHeader } from '../../hooks/useHamburgerHeader'
-import { supabase } from '../../lib/supabase'
+import { getProducts, getStockEntriesByShop } from '../../services/products'
+import { getSaleItemsByShop } from '../../services/sales'
+import { getPriceHistoryByShop } from '../../services/suppliers'
 
 interface MargeRow {
   id: string
@@ -37,39 +39,34 @@ export default function MargesScreen() {
   const [rows, setRows] = useState<MargeRow[]>([])
   const [refreshing, setRefreshing] = useState(false)
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [profile?.shop_id])
 
   async function load() {
     if (!profile?.shop_id) return
-    const [prodRes, saleItemRes, priceHistRes] = await Promise.all([
-      supabase.from('products').select('*').eq('shop_id', profile.shop_id),
-      supabase.from('sale_items').select('product_id, unit_price, quantity').eq('products.shop_id', profile.shop_id),
-      supabase.from('price_history').select('product_id, price_per_unit').eq('suppliers.shop_id', profile.shop_id),
+    const [prodRes, saleItemRes, priceHistRes, stockEntriesRes] = await Promise.all([
+      getProducts(profile.shop_id),
+      getSaleItemsByShop(profile.shop_id),
+      getPriceHistoryByShop(profile.shop_id),
+      getStockEntriesByShop(profile.shop_id),
     ])
 
     const products = prodRes.data ?? []
 
-    // Avg sale price per product from sale_items
     const salePrices: Record<string, number[]> = {}
     ;(saleItemRes.data ?? []).forEach((si: any) => {
       if (!salePrices[si.product_id]) salePrices[si.product_id] = []
       salePrices[si.product_id].push(si.unit_price)
     })
 
-    // Avg buy price from price_history
     const buyPrices: Record<string, number[]> = {}
     ;(priceHistRes.data ?? []).forEach((ph: any) => {
       if (!buyPrices[ph.product_id]) buyPrices[ph.product_id] = []
       buyPrices[ph.product_id].push(ph.price_per_unit)
     })
 
-    // Also use stock_entries cost_per_unit as fallback
-    const { data: stockEntries } = await supabase.from('stock_entries').select('product_id, cost_per_unit').eq('shop_id', profile.shop_id)
-    ;(stockEntries ?? []).forEach((se: any) => {
-      if (se.cost_per_unit > 0) {
-        if (!buyPrices[se.product_id]) buyPrices[se.product_id] = []
-        buyPrices[se.product_id].push(se.cost_per_unit)
-      }
+    ;(stockEntriesRes.data ?? []).forEach((se: any) => {
+      if (!buyPrices[se.product_id]) buyPrices[se.product_id] = []
+      buyPrices[se.product_id].push(se.cost_per_unit)
     })
 
     const result: MargeRow[] = products.map((p: any) => {

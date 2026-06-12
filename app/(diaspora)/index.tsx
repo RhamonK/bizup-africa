@@ -1,82 +1,109 @@
 import { useEffect, useState } from 'react'
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
+import { BarChart } from '../../components/BarChart'
 import { Colors } from '../../constants/colors'
 import { useAuth } from '../../hooks/useAuth'
+import { useHamburgerHeader } from '../../hooks/useHamburgerHeader'
+import { getSeasonAlert } from '../../lib/season'
 import { supabase } from '../../lib/supabase'
+import { fmt, fmtQty } from '../../utils/helpers'
+import { ProductImage } from '../../components/ProductImage'
 
 interface Stats {
   revenueToday: number
   revenueWeek: number
   salesCount: number
   debtTotal: number
-  alerts: { id: string; message: string; type: string; created_at: string }[]
-  trend: number[] // 7 derniers jours
+  trend30: number[]
+  trend30Labels: string[]
+  topProducts: { name: string; revenue: number; qty: number }[]
+  lowStockProducts: { name: string; qty: number; unit: string; threshold: number }[]
+  overdueCreditsCount: number
   shopName: string
 }
 
-function MiniBar({ values }: { values: number[] }) {
-  const max = Math.max(...values, 1)
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 4, height: 48 }}>
-      {values.map((v, i) => {
-        const isToday = i === values.length - 1
-        const h = Math.max(4, (v / max) * 48)
-        return (
-          <View key={i} style={{ flex: 1, height: h, borderRadius: 3,
-            backgroundColor: isToday ? Colors.mint : 'rgba(46,204,138,0.25)' }} />
-        )
-      })}
-    </View>
-  )
-}
-
 export default function DiasporaHome() {
+  useHamburgerHeader()
   const { profile } = useAuth()
   const [stats, setStats] = useState<Stats | null>(null)
   const [refreshing, setRefreshing] = useState(false)
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    load()
+    const interval = setInterval(load, 60000)
+    return () => clearInterval(interval)
+  }, [profile?.shop_id])
 
   async function load() {
     if (!profile?.shop_id) return
     const shopId = profile.shop_id
     const now = new Date()
     const today = now.toISOString().split('T')[0]
-    const weekAgo = new Date(now.getTime() - 7 * 86400000).toISOString().split('T')[0]
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 86400000).toISOString().split('T')[0]
+    const thirtyDaysAgo = new Date(now.getTime() - 29 * 86400000).toISOString().split('T')[0]
 
-    const [shopRes, dayRes, weekRes, debtRes, alertRes] = await Promise.all([
+    const [shopRes, dayRes, trend30Res, debtRes, productsRes, overdueRes] = await Promise.all([
       supabase.from('shops').select('name').eq('id', shopId).single(),
-      supabase.from('sales').select('paid_amount').eq('shop_id', shopId).gte('date', today),
-      supabase.from('sales').select('paid_amount, date').eq('shop_id', shopId).gte('date', weekAgo).order('date'),
+      supabase.from('sales').select('paid_amount, items:sale_items(quantity, total, product:products(name))').eq('shop_id', shopId).gte('date', today),
+      supabase.from('sales').select('total_amount, date').eq('shop_id', shopId).gte('date', thirtyDaysAgo).order('date'),
       supabase.from('clients').select('total_debt').eq('shop_id', shopId).gt('total_debt', 0),
-      supabase.from('alerts').select('*').eq('shop_id', shopId).eq('lu', false).order('created_at', { ascending: false }).limit(5),
+      supabase.from('products').select('name, stock_quantity, alert_threshold, unit').eq('shop_id', shopId),
+      supabase.from('sales').select('id').eq('shop_id', shopId).gt('credit_amount', 0).lt('date', sevenDaysAgo),
     ])
 
-    // Trend 7 jours
-    const trend = Array(7).fill(0)
-    ;(weekRes.data ?? []).forEach((s: any) => {
-      const d = new Date(s.date)
-      const idx = 6 - Math.floor((now.getTime() - d.getTime()) / 86400000)
-      if (idx >= 0 && idx < 7) trend[idx] += s.paid_amount
+    // 30-day trend
+    const days30 = Array.from({ length: 30 }, (_, i) => {
+      const d = new Date(now.getTime() - (29 - i) * 86400000)
+      return d.toISOString().split('T')[0]
     })
+    const trend30 = Array(30).fill(0)
+    ;(trend30Res.data ?? []).forEach((s: any) => {
+      const idx = days30.indexOf(s.date)
+      if (idx >= 0) trend30[idx] += s.total_amount
+    })
+    const trend30Labels = days30.map(d => new Date(d).getDate().toString())
 
+    // Week KPI from 30-day data
+    const revenueWeek = (trend30Res.data ?? [])
+      .filter((s: any) => s.date >= sevenDaysAgo)
+      .reduce((sum: number, s: any) => sum + s.total_amount, 0)
+
+    // Top 3 products today
+    const prodMap: Record<string, { name: string; revenue: number; qty: number }> = {}
+    ;(dayRes.data ?? []).forEach((sale: any) => {
+      ;(sale.items ?? []).forEach((item: any) => {
+        const name = item.product?.name ?? 'Inconnu'
+        if (!prodMap[name]) prodMap[name] = { name, revenue: 0, qty: 0 }
+        prodMap[name].revenue += item.total
+        prodMap[name].qty += item.quantity
+      })
+    })
+    const topProducts = Object.values(prodMap)
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 3)
+
+    // Low stock
+    const lowStockProducts = (productsRes.data ?? [])
+      .filter((p: any) => p.stock_quantity <= p.alert_threshold)
+      .map((p: any) => ({ name: p.name, qty: p.stock_quantity, unit: p.unit, threshold: p.alert_threshold }))
+
+    setLastUpdated(new Date())
     setStats({
       revenueToday: (dayRes.data ?? []).reduce((s: number, r: any) => s + r.paid_amount, 0),
-      revenueWeek: (weekRes.data ?? []).reduce((s: number, r: any) => s + r.paid_amount, 0),
+      revenueWeek,
       salesCount: dayRes.data?.length ?? 0,
       debtTotal: (debtRes.data ?? []).reduce((s: number, r: any) => s + r.total_debt, 0),
-      alerts: alertRes.data ?? [],
-      trend,
+      trend30,
+      trend30Labels,
+      topProducts,
+      lowStockProducts,
+      overdueCreditsCount: overdueRes.data?.length ?? 0,
       shopName: shopRes.data?.name ?? 'Commerce',
     })
   }
 
-  const fmt = (n: number) => {
-    if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M F'
-    if (n >= 1000) return (n / 1000).toFixed(0) + 'k F'
-    return n.toLocaleString('fr-FR') + ' F'
-  }
+  const season = getSeasonAlert()
 
   return (
     <View style={styles.root}>
@@ -112,46 +139,78 @@ export default function DiasporaHome() {
           </View>
         </View>
 
-        {/* Tendance 7j */}
+        {/* Tendance 30 jours */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Tendance — 7 jours</Text>
-          {stats && <MiniBar values={stats.trend} />}
-          <View style={{ flexDirection: 'row', marginTop: 6 }}>
-            {['J-6','J-5','J-4','J-3','J-2','Hier','Auj.'].map((l, i) => (
-              <Text key={i} style={[styles.barLabel, i === 6 && { color: Colors.mint, fontWeight: '700' }]}>{l}</Text>
-            ))}
-          </View>
+          <Text style={styles.cardTitle}>Tendance — 30 jours</Text>
+          {stats && <BarChart data={stats.trend30} labels={stats.trend30Labels} height={64} />}
         </View>
 
-        {/* Alertes */}
+        {/* Top produits aujourd'hui */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Alertes actives</Text>
-          {(stats?.alerts.length ?? 0) === 0 ? (
-            <View style={styles.allGood}>
-              <Text style={{ fontSize: 32 }}>✅</Text>
-              <Text style={styles.allGoodText}>Tout va bien — aucune alerte</Text>
-            </View>
+          <Text style={styles.cardTitle}>Top produits aujourd'hui</Text>
+          {(stats?.topProducts.length ?? 0) === 0 ? (
+            <Text style={styles.emptyText}>Aucune vente enregistrée aujourd'hui.</Text>
           ) : (
-            stats?.alerts.map(a => (
-              <View key={a.id} style={[styles.alertRow,
-                a.type === 'stock_faible' ? styles.alertRed :
-                a.type === 'impaye' ? styles.alertAmber : styles.alertGreen
-              ]}>
-                <Text style={{ fontSize: 18 }}>
-                  {a.type === 'stock_faible' ? '🚨' : a.type === 'impaye' ? '💰' : '📅'}
-                </Text>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.alertText}>{a.message}</Text>
-                  <Text style={styles.alertTime}>
-                    {new Date(a.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
-                  </Text>
+            stats?.topProducts.map((p, i) => (
+              <View key={i} style={styles.prodRow}>
+                <ProductImage name={p.name} size={44} borderRadius={12} />
+                <View style={{ flex: 1, marginLeft: 10 }}>
+                  <Text style={styles.prodName}>{p.name}</Text>
+                  <Text style={styles.prodSub}>{fmtQty(p.qty)} vendu(s)</Text>
                 </View>
+                <Text style={styles.prodRevenue}>{fmt(p.revenue)}</Text>
               </View>
             ))
           )}
         </View>
 
+        {/* Alertes actives */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Alertes actives</Text>
+
+          {stats?.lowStockProducts.map((p, i) => (
+            <View key={i} style={[styles.alertRow, styles.alertRed]}>
+              <Text style={{ fontSize: 18 }}>🚨</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.alertText}>{p.name} — stock critique : {p.qty} {p.unit}</Text>
+                <Text style={styles.alertSub}>Seuil : {p.threshold}</Text>
+              </View>
+            </View>
+          ))}
+
+          {(stats?.overdueCreditsCount ?? 0) > 0 && (
+            <View style={[styles.alertRow, styles.alertAmber]}>
+              <Text style={{ fontSize: 18 }}>💰</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.alertText}>{stats!.overdueCreditsCount} vente(s) avec crédit de plus de 7 jours</Text>
+                <Text style={styles.alertSub}>Vérifier les crédits en cours</Text>
+              </View>
+            </View>
+          )}
+
+          {(stats?.lowStockProducts.length ?? 0) === 0 && (stats?.overdueCreditsCount ?? 0) === 0 && (
+            <View style={styles.allGood}>
+              <Text style={{ fontSize: 32 }}>✅</Text>
+              <Text style={styles.allGoodText}>Tout va bien — aucune alerte</Text>
+            </View>
+          )}
+
+          {/* Alerte saisonnière — toujours visible */}
+          <View style={[styles.alertRow, styles.alertGreen, { marginBottom: 0 }]}>
+            <Text style={{ fontSize: 18 }}>📅</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.alertText}>{season.message}</Text>
+              <Text style={styles.alertSub}>{season.detail}</Text>
+            </View>
+          </View>
+        </View>
+
         <View style={styles.footer}>
+          {lastUpdated && (
+            <Text style={styles.footerUpdated}>
+              Mis à jour à {lastUpdated.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+            </Text>
+          )}
           <Text style={styles.footerText}>Vue en lecture seule · Famille MamaShop</Text>
           <Text style={styles.footerSub}>Données en temps réel depuis {stats?.shopName}</Text>
         </View>
@@ -186,16 +245,22 @@ const styles = StyleSheet.create({
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 8, elevation: 3,
   },
   cardTitle: { fontSize: 11, fontWeight: '700', color: Colors.textSecondary, textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 14 },
-  barLabel: { flex: 1, fontSize: 8, color: Colors.textTertiary, textAlign: 'center' },
+  emptyText: { fontSize: 13, color: Colors.textTertiary, textAlign: 'center', paddingVertical: 8 },
+  prodRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: Colors.borderLight },
+  prodEmoji: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  prodName: { fontSize: 14, fontWeight: '700', color: Colors.text },
+  prodSub: { fontSize: 11, color: Colors.textSecondary, marginTop: 2 },
+  prodRevenue: { fontSize: 14, fontWeight: '800', color: Colors.forestMid },
   allGood: { alignItems: 'center', paddingVertical: 16, gap: 8 },
   allGoodText: { fontSize: 14, color: Colors.textSecondary },
   alertRow: { flexDirection: 'row', gap: 12, padding: 12, borderRadius: 10, marginBottom: 8, alignItems: 'flex-start' },
-  alertRed: { backgroundColor: Colors.dangerLight, borderLeftWidth: 3, borderLeftColor: Colors.danger },
-  alertAmber: { backgroundColor: Colors.warningLight, borderLeftWidth: 3, borderLeftColor: Colors.amber },
-  alertGreen: { backgroundColor: Colors.successLight, borderLeftWidth: 3, borderLeftColor: Colors.mint },
+  alertRed: { backgroundColor: Colors.dangerLight },
+  alertAmber: { backgroundColor: Colors.warningLight },
+  alertGreen: { backgroundColor: Colors.successLight },
   alertText: { fontSize: 13, fontWeight: '600', color: Colors.text },
-  alertTime: { fontSize: 10, color: Colors.textSecondary, marginTop: 3 },
+  alertSub: { fontSize: 10, color: Colors.textSecondary, marginTop: 3 },
   footer: { alignItems: 'center', marginTop: 24, paddingHorizontal: 16 },
+  footerUpdated: { fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 4 },
   footerText: { fontSize: 12, color: 'rgba(255,255,255,0.25)' },
   footerSub: { fontSize: 11, color: 'rgba(255,255,255,0.15)', marginTop: 3 },
 })
