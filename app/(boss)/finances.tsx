@@ -12,7 +12,11 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { Card } from '../../components/Card'
 import { Colors } from '../../constants/colors'
 import { useAuth } from '../../hooks/useAuth'
-import { supabase } from '../../lib/supabase'
+import { useHamburgerHeader } from '../../hooks/useHamburgerHeader'
+import { Client } from '../../lib/types'
+import { getSalesSummary, getSaleItemsByShop, SaleAmountRow, SaleItemByShopRow } from '../../services/sales'
+import { getClients } from '../../services/clients'
+import { getShop } from '../../services/shops'
 
 interface FinanceData {
   revenue30: number
@@ -58,11 +62,12 @@ const badgeStyles = StyleSheet.create({
 })
 
 export default function FinancesScreen() {
+  useHamburgerHeader()
   const { profile } = useAuth()
   const [data, setData] = useState<FinanceData | null>(null)
   const [refreshing, setRefreshing] = useState(false)
 
-  useEffect(() => { loadData() }, [])
+  useEffect(() => { loadData() }, [profile?.shop_id])
 
   async function loadData() {
     if (!profile?.shop_id) return
@@ -72,18 +77,18 @@ export default function FinancesScreen() {
     const d90 = new Date(now.getTime() - 90 * 86400000).toISOString().split('T')[0]
 
     const [shop, sales30, sales90, allSales, debtRes, saleItems] = await Promise.all([
-      supabase.from('shops').select('name, created_at').eq('id', shopId).single(),
-      supabase.from('sales').select('paid_amount').eq('shop_id', shopId).gte('date', d30),
-      supabase.from('sales').select('paid_amount').eq('shop_id', shopId).gte('date', d90),
-      supabase.from('sales').select('paid_amount, date').eq('shop_id', shopId).order('date'),
-      supabase.from('clients').select('total_debt').eq('shop_id', shopId).gt('total_debt', 0),
-      supabase.from('sale_items').select('product_id, quantity, products(name)').eq('products.shop_id', shopId),
+      getShop(shopId),
+      getSalesSummary(shopId, d30),
+      getSalesSummary(shopId, d90),
+      getSalesSummary(shopId),
+      getClients(shopId),
+      getSaleItemsByShop(shopId),
     ])
 
-    const rev30 = (sales30.data ?? []).reduce((s: number, r: any) => s + r.paid_amount, 0)
-    const rev90 = (sales90.data ?? []).reduce((s: number, r: any) => s + r.paid_amount, 0)
-    const revTotal = (allSales.data ?? []).reduce((s: number, r: any) => s + r.paid_amount, 0)
-    const totalDebt = (debtRes.data ?? []).reduce((s: number, r: any) => s + r.total_debt, 0)
+    const rev30 = (sales30.data ?? []).reduce((s: number, r: SaleAmountRow) => s + r.paid_amount, 0)
+    const rev90 = (sales90.data ?? []).reduce((s: number, r: SaleAmountRow) => s + r.paid_amount, 0)
+    const revTotal = (allSales.data ?? []).reduce((s: number, r: SaleAmountRow) => s + r.paid_amount, 0)
+    const totalDebt = (debtRes.data ?? []).reduce((s: number, c: Client) => s + Math.max(0, c.total_debt), 0)
 
     // Days since first sale
     const firstSale = allSales.data?.[0]?.date
@@ -92,7 +97,7 @@ export default function FinancesScreen() {
 
     // Top product by quantity
     const productQty: Record<string, { name: string; qty: number }> = {}
-    ;(saleItems.data ?? []).forEach((si: any) => {
+    ;(saleItems.data ?? []).forEach((si: SaleItemByShopRow) => {
       if (!si.product_id) return
       const name = si.products?.name ?? 'Inconnu'
       if (!productQty[si.product_id]) productQty[si.product_id] = { name, qty: 0 }

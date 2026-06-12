@@ -1,40 +1,23 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 import {
   Alert, Modal, RefreshControl, ScrollView,
   StyleSheet, Text, TouchableOpacity, View,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { useFocusEffect, useRouter } from 'expo-router'
 import { Button } from '../../components/Button'
+import { ClientAvatar, LEVEL_ICON } from '../../components/ClientAvatar'
 import { Input } from '../../components/Input'
 import { Colors } from '../../constants/colors'
 import { useAuth } from '../../hooks/useAuth'
-import { supabase } from '../../lib/supabase'
+import { useHamburgerHeader } from '../../hooks/useHamburgerHeader'
 import { Client } from '../../lib/types'
-
-const LEVEL_COLORS: Record<string, string> = {
-  grand_compte: '#8E44AD',
-  vip: '#2471A3',
-  standard: '#7BAE96',
-}
-
-const LEVEL_ICON: Record<string, string> = {
-  grand_compte: '👑',
-  vip: '⭐',
-  standard: '',
-}
-
-function ClientAvatar({ name, level }: { name: string; level: string }) {
-  const initials = name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
-  const color = LEVEL_COLORS[level] ?? Colors.sage
-  return (
-    <View style={[styles.avatar, { backgroundColor: color }]}>
-      <Text style={styles.avatarText}>{initials}</Text>
-    </View>
-  )
-}
+import { addCreditPayment, getClientsByDebt } from '../../services/clients'
 
 export default function CreditsScreen() {
+  useHamburgerHeader()
   const { profile } = useAuth()
+  const router = useRouter()
   const [clients, setClients] = useState<Client[]>([])
   const [allClients, setAllClients] = useState<Client[]>([])
   const [refreshing, setRefreshing] = useState(false)
@@ -42,11 +25,11 @@ export default function CreditsScreen() {
   const [paymentAmount, setPaymentAmount] = useState('')
   const [saving, setSaving] = useState(false)
 
-  useEffect(() => { load() }, [])
+  useFocusEffect(useCallback(() => { load() }, [profile?.shop_id]))
 
   async function load() {
     if (!profile?.shop_id) return
-    const { data } = await supabase.from('clients').select('*').eq('shop_id', profile.shop_id).order('total_debt', { ascending: false })
+    const { data } = await getClientsByDebt(profile.shop_id)
     if (data) {
       setAllClients(data)
       setClients(data.filter((c: Client) => c.total_debt > 0))
@@ -63,20 +46,15 @@ export default function CreditsScreen() {
       return
     }
     setSaving(true)
-    await Promise.all([
-      supabase.from('credit_payments').insert({ client_id: selectedClient.id, amount, date: new Date().toISOString().split('T')[0] }),
-      supabase.from('clients').update({ total_debt: selectedClient.total_debt - amount }).eq('id', selectedClient.id),
-    ])
+    const { error } = await addCreditPayment(selectedClient.id, amount)
     setSaving(false)
+    if (error) {
+      Alert.alert('Erreur', 'Le paiement n\'a pas pu être enregistré. Vérifie ta connexion et réessaie.')
+      return
+    }
     setSelectedClient(null); setPaymentAmount('')
     Alert.alert('✅ Paiement enregistré', `${amount.toLocaleString('fr-FR')} F reçu de ${selectedClient.name}`)
     load()
-  }
-
-  // Calculer depuis combien de temps
-  function daysSince(dateStr: string) {
-    const d = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000)
-    return d > 0 ? `${d} jour${d > 1 ? 's' : ''}` : 'Aujourd\'hui'
   }
 
   return (
@@ -102,7 +80,7 @@ export default function CreditsScreen() {
             </View>
           ) : (
             clients.map(client => (
-              <View key={client.id} style={styles.clientRow}>
+              <TouchableOpacity key={client.id} style={styles.clientRow} onPress={() => router.push({ pathname: '/(terrain)/fiche-client', params: { clientId: client.id } })}>
                 <ClientAvatar name={client.name} level={client.level} />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.clientName}>{client.name}</Text>
@@ -117,7 +95,7 @@ export default function CreditsScreen() {
                     <Text style={styles.payBtnText}>Encaisser</Text>
                   </TouchableOpacity>
                 </View>
-              </View>
+              </TouchableOpacity>
             ))
           )}
         </View>
@@ -127,14 +105,14 @@ export default function CreditsScreen() {
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Soldés ✅</Text>
             {allClients.filter(c => c.total_debt === 0).map(client => (
-              <View key={client.id} style={styles.clientRow}>
+              <TouchableOpacity key={client.id} style={styles.clientRow} onPress={() => router.push({ pathname: '/(terrain)/fiche-client', params: { clientId: client.id } })}>
                 <ClientAvatar name={client.name} level={client.level} />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.clientName}>{client.name}</Text>
                   <Text style={styles.clientSub}>{client.level === 'grand_compte' ? 'Grand compte' : client.level === 'vip' ? 'VIP' : 'Standard'}</Text>
                 </View>
                 <Text style={[styles.debtAmount, { color: Colors.mint }]}>0 F</Text>
-              </View>
+              </TouchableOpacity>
             ))}
           </View>
         )}
@@ -191,8 +169,6 @@ const styles = StyleSheet.create({
   totalLabel: { fontSize: 14, fontWeight: '400', color: 'rgba(255,255,255,0.4)' },
   card: { backgroundColor: '#fff', borderRadius: 18, padding: 18, marginBottom: 12, shadowColor: Colors.forest, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 6, elevation: 2 },
   cardTitle: { fontSize: 11, fontWeight: '700', color: Colors.textSecondary, textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 14 },
-  avatar: { width: 42, height: 42, borderRadius: 13, alignItems: 'center', justifyContent: 'center', marginRight: 12, flexShrink: 0 },
-  avatarText: { color: '#fff', fontSize: 15, fontWeight: '800' },
   clientRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: Colors.borderLight },
   clientName: { fontSize: 14, fontWeight: '700', color: Colors.text },
   clientSub: { fontSize: 11, color: Colors.textSecondary, marginTop: 2 },

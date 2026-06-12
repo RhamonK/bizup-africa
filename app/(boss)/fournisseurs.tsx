@@ -1,7 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 import {
-  Alert,
-  Modal,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -10,31 +8,16 @@ import {
   View,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { Button } from '../../components/Button'
+import { useFocusEffect, useRouter } from 'expo-router'
 import { Card } from '../../components/Card'
-import { Input } from '../../components/Input'
+import { ReliabilityDots } from '../../components/ReliabilityDots'
 import { Colors } from '../../constants/colors'
 import { useAuth } from '../../hooks/useAuth'
-import { supabase } from '../../lib/supabase'
-import { PriceHistory, Product, Supplier } from '../../lib/types'
+import { useHamburgerHeader } from '../../hooks/useHamburgerHeader'
+import { PriceHistory, Supplier } from '../../lib/types'
+import { getRecentSupplierPrices, getSuppliersByReliability } from '../../services/suppliers'
 
 type SeasonFilter = 'dry' | 'rainy' | 'all_year' | 'all'
-
-function ReliabilityDots({ score }: { score: number }) {
-  return (
-    <View style={{ flexDirection: 'row', gap: 3 }}>
-      {[1, 2, 3, 4, 5].map(i => (
-        <View
-          key={i}
-          style={{
-            width: 8, height: 8, borderRadius: 4,
-            backgroundColor: i <= score ? Colors.primary : Colors.border,
-          }}
-        />
-      ))}
-    </View>
-  )
-}
 
 function AIInsightCard({ supplier, history }: { supplier: Supplier; history: PriceHistory[] }) {
   const [advice, setAdvice] = useState<string | null>(null)
@@ -106,82 +89,32 @@ function AIInsightCard({ supplier, history }: { supplier: Supplier; history: Pri
 }
 
 export default function FournisseursScreen() {
+  useHamburgerHeader()
   const { profile } = useAuth()
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
-  const [products, setProducts] = useState<Product[]>([])
   const [priceHistory, setPriceHistory] = useState<Record<string, PriceHistory[]>>({})
   const [seasonFilter, setSeasonFilter] = useState<SeasonFilter>('all')
   const [refreshing, setRefreshing] = useState(false)
-  const [modalVisible, setModalVisible] = useState(false)
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null)
-  const [saving, setSaving] = useState(false)
+  const router = useRouter()
 
-  // Add supplier form
-  const [form, setForm] = useState({
-    name: '', phone: '', whatsapp: '', zone: '',
-    season: 'dry' as Supplier['season'], reliability: 4,
-    delivery_days: '1', min_quantity: '', notes: '',
-    selected_products: [] as string[],
-  })
-
-  useEffect(() => { loadData() }, [])
+  useFocusEffect(useCallback(() => { loadData() }, [profile?.shop_id]))
 
   async function loadData() {
     if (!profile?.shop_id) return
 
-    const { data: prods } = await supabase.from('products').select('*').eq('shop_id', profile.shop_id)
-    if (prods) setProducts(prods)
-
-    const { data: sup } = await supabase
-      .from('suppliers')
-      .select('*, products:supplier_products(*, product:products(*))')
-      .eq('shop_id', profile.shop_id)
-      .order('reliability', { ascending: false })
+    const { data: sup } = await getSuppliersByReliability(profile.shop_id)
 
     if (sup) {
       setSuppliers(sup)
       // Load price history for each supplier
       const histories: Record<string, PriceHistory[]> = {}
       await Promise.all(sup.map(async (s: Supplier) => {
-        const { data } = await supabase
-          .from('price_history')
-          .select('*, product:products(*)')
-          .eq('supplier_id', s.id)
-          .order('date', { ascending: false })
-          .limit(10)
+        const { data } = await getRecentSupplierPrices(s.id)
         if (data) histories[s.id] = data
       }))
       setPriceHistory(histories)
     }
-  }
-
-  async function handleSave() {
-    if (!form.name.trim() || !profile?.shop_id) return
-    setSaving(true)
-    const { data: newSup } = await supabase.from('suppliers').insert({
-      shop_id: profile.shop_id,
-      name: form.name.trim(),
-      phone: form.phone || null,
-      whatsapp: form.whatsapp || null,
-      zone: form.zone || null,
-      season: form.season,
-      reliability: form.reliability,
-      delivery_days: parseInt(form.delivery_days) || 1,
-      min_quantity: form.min_quantity ? parseFloat(form.min_quantity) : null,
-      notes: form.notes || null,
-    }).select().single()
-
-    // Link products
-    if (newSup && form.selected_products.length > 0) {
-      await supabase.from('supplier_products').insert(
-        form.selected_products.map(pid => ({ supplier_id: newSup.id, product_id: pid }))
-      )
-    }
-
-    setSaving(false)
-    setModalVisible(false)
-    setForm({ name: '', phone: '', whatsapp: '', zone: '', season: 'dry', reliability: 4, delivery_days: '1', min_quantity: '', notes: '', selected_products: [] })
-    loadData()
   }
 
   const filtered = suppliers.filter(s =>
@@ -198,7 +131,7 @@ export default function FournisseursScreen() {
     <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
         <Text style={styles.title}>Fournisseurs</Text>
-        <TouchableOpacity style={styles.addBtn} onPress={() => setModalVisible(true)}>
+        <TouchableOpacity style={styles.addBtn} onPress={() => router.push('/(boss)/fournisseur-form')}>
           <Text style={styles.addBtnText}>+ Ajouter</Text>
         </TouchableOpacity>
       </View>
@@ -305,66 +238,6 @@ export default function FournisseursScreen() {
         <View style={{ height: 32 }} />
       </ScrollView>
 
-      {/* Add supplier modal */}
-      <Modal visible={modalVisible} animationType="slide" presentationStyle="pageSheet">
-        <SafeAreaView style={{ flex: 1, backgroundColor: Colors.background }}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Nouveau fournisseur</Text>
-            <TouchableOpacity onPress={() => setModalVisible(false)}>
-              <Text style={{ fontSize: 20, color: Colors.textSecondary }}>✕</Text>
-            </TouchableOpacity>
-          </View>
-          <ScrollView style={{ padding: 20 }} keyboardShouldPersistTaps="handled">
-            <Input label="Nom du fournisseur" value={form.name} onChangeText={t => setForm(f => ({ ...f, name: t }))} placeholder="ex: Amadou Koné" />
-            <Input label="Téléphone" value={form.phone} onChangeText={t => setForm(f => ({ ...f, phone: t }))} placeholder="+228 90000000" keyboardType="phone-pad" />
-            <Input label="WhatsApp" value={form.whatsapp} onChangeText={t => setForm(f => ({ ...f, whatsapp: t }))} placeholder="+228 90000000" keyboardType="phone-pad" />
-            <Input label="Zone géographique" value={form.zone} onChangeText={t => setForm(f => ({ ...f, zone: t }))} placeholder="ex: Nord Togo, Burkina" />
-            <Input label="Délai de livraison (jours)" value={form.delivery_days} onChangeText={t => setForm(f => ({ ...f, delivery_days: t }))} keyboardType="numeric" placeholder="ex: 2" />
-            <Input label="Quantité minimale de commande" value={form.min_quantity} onChangeText={t => setForm(f => ({ ...f, min_quantity: t }))} keyboardType="numeric" placeholder="ex: 10 caisses" />
-            <Input label="Notes" value={form.notes} onChangeText={t => setForm(f => ({ ...f, notes: t }))} placeholder="Observations importantes..." multiline numberOfLines={2} style={{ height: 70, textAlignVertical: 'top', paddingTop: 10 }} />
-
-            <Text style={styles.fieldLabel}>Produits fournis</Text>
-            <View style={styles.seasonRow}>
-              {products.map(p => (
-                <TouchableOpacity
-                  key={p.id}
-                  style={[styles.seasonChip, form.selected_products.includes(p.id) && styles.seasonChipActive]}
-                  onPress={() => setForm(f => ({ ...f, selected_products: f.selected_products.includes(p.id) ? f.selected_products.filter(id => id !== p.id) : [...f.selected_products, p.id] }))}
-                >
-                  <Text style={[styles.seasonText, form.selected_products.includes(p.id) && styles.seasonTextActive]}>{p.name}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-            {products.length === 0 && <Text style={{ fontSize: 12, color: Colors.textTertiary, marginBottom: 12 }}>Crée d'abord des produits dans Gestion → Produits.</Text>}
-
-            <Text style={styles.fieldLabel}>Saison active</Text>
-            <View style={styles.seasonRow}>
-              {(['dry', 'rainy', 'all_year'] as const).map(s => (
-                <TouchableOpacity
-                  key={s}
-                  style={[styles.seasonChip, form.season === s && styles.seasonChipActive]}
-                  onPress={() => setForm(f => ({ ...f, season: s }))}
-                >
-                  <Text style={[styles.seasonText, form.season === s && styles.seasonTextActive]}>
-                    {s === 'dry' ? '☀️ Sèche' : s === 'rainy' ? '🌧️ Pluies' : '📅 Toute l\'année'}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <Text style={styles.fieldLabel}>Fiabilité ({form.reliability}/5)</Text>
-            <View style={styles.reliabilityRow}>
-              {[1, 2, 3, 4, 5].map(n => (
-                <TouchableOpacity key={n} onPress={() => setForm(f => ({ ...f, reliability: n }))}>
-                  <View style={[styles.reliabilityDot, { backgroundColor: n <= form.reliability ? Colors.primary : Colors.border }]} />
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <Button title="Enregistrer le fournisseur" onPress={handleSave} loading={saving} size="lg" style={{ marginTop: 16 }} />
-          </ScrollView>
-        </SafeAreaView>
-      </Modal>
     </SafeAreaView>
   )
 }
@@ -406,17 +279,4 @@ const styles = StyleSheet.create({
   historyProduct: { fontSize: 14, fontWeight: '600', color: Colors.text },
   historyDate: { fontSize: 11, color: Colors.textSecondary },
   historyPrice: { fontSize: 15, fontWeight: '700', color: Colors.primary },
-  modalHeader: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    padding: 20, borderBottomWidth: 1, borderBottomColor: Colors.border,
-  },
-  modalTitle: { fontSize: 20, fontWeight: '700', color: Colors.text },
-  fieldLabel: { fontSize: 14, fontWeight: '600', color: Colors.text, marginBottom: 8 },
-  seasonRow: { flexDirection: 'row', gap: 8, marginBottom: 16, flexWrap: 'wrap' },
-  seasonChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10, borderWidth: 1.5, borderColor: Colors.border },
-  seasonChipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  seasonText: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary },
-  seasonTextActive: { color: '#fff' },
-  reliabilityRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
-  reliabilityDot: { width: 28, height: 28, borderRadius: 14 },
 })

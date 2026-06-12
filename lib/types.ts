@@ -35,6 +35,7 @@ export interface Product {
   stock_quantity: number
   alert_threshold: number
   alert_days_without_sale: number
+  photo_url?: string | null
   created_at: string
 }
 
@@ -43,6 +44,7 @@ export interface Client {
   shop_id: string
   name: string
   phone: string | null
+  whatsapp: string | null
   level: ClientLevel
   total_debt: number
   address: string | null
@@ -117,6 +119,7 @@ export interface Sale {
   total_amount: number
   paid_amount: number
   credit_amount: number
+  pay_mode?: 'cash' | 'credit' | 'mobile_money'
   date: string
   created_at: string
   items?: SaleItem[]
@@ -141,4 +144,22 @@ export interface DashboardStats {
   total_debt: number
   stock_alerts: number
   sales_today: number
+}
+
+export interface SaleItemPayload {
+  product_id: string
+  quantity: number
+  unit_price: number
+  total: number
+  current_stock?: number   // utilisé côté UI pour valider la quantité dispo
+}
+
+export interface SalePayload {
+  total_amount: number
+  paid_amount: number
+  credit_amount: number
+  date: string
+  pay_mode?: 'cash' | 'credit' | 'mobile_money'
+  items: SaleItemPayload[]
+  client_name?: string
 }

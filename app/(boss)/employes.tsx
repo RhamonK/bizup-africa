@@ -15,8 +15,11 @@ import { Card } from '../../components/Card'
 import { Input } from '../../components/Input'
 import { Colors } from '../../constants/colors'
 import { useAuth } from '../../hooks/useAuth'
-import { supabase } from '../../lib/supabase'
+import { useHamburgerHeader } from '../../hooks/useHamburgerHeader'
 import { Profile, Sale } from '../../lib/types'
+import { signUpEmployee } from '../../services/auth'
+import { getEmployees, updateProfile } from '../../services/profiles'
+import { getEmployeeSales } from '../../services/sales'
 
 interface EmployeeStats {
   profile: Profile
@@ -26,6 +29,7 @@ interface EmployeeStats {
 }
 
 export default function EmployesScreen() {
+  useHamburgerHeader()
   const { profile } = useAuth()
   const [stats, setStats] = useState<EmployeeStats[]>([])
   const [refreshing, setRefreshing] = useState(false)
@@ -35,7 +39,7 @@ export default function EmployesScreen() {
   const [form, setForm] = useState({ full_name: '', email: '', password: '' })
   const [formError, setFormError] = useState('')
 
-  useEffect(() => { loadStats() }, [period])
+  useEffect(() => { loadStats() }, [period, profile?.shop_id])
 
   async function loadStats() {
     if (!profile?.shop_id) return
@@ -44,21 +48,13 @@ export default function EmployesScreen() {
       ? now.toISOString().split('T')[0]
       : new Date(now.getTime() - 7 * 86400000).toISOString().split('T')[0]
 
-    const { data: employees } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('shop_id', profile.shop_id)
-      .eq('role', 'terrain')
+    const shopId = profile.shop_id
+    const { data: employees } = await getEmployees(shopId)
 
     if (!employees) return
 
     const employeeStats = await Promise.all(employees.map(async (emp: Profile) => {
-      const { data: sales } = await supabase
-        .from('sales')
-        .select('paid_amount, credit_amount')
-        .eq('shop_id', profile.shop_id)
-        .eq('created_by', emp.id)
-        .gte('date', cutoff)
+      const { data: sales } = await getEmployeeSales(shopId, emp.id, cutoff)
 
       const salesList = (sales ?? []) as Pick<Sale, 'paid_amount' | 'credit_amount'>[]
       return {
@@ -86,25 +82,15 @@ export default function EmployesScreen() {
 
     setSaving(true)
     try {
-      // Crée le compte auth via Supabase Admin (ou signUp)
-      const { data, error } = await supabase.auth.signUp({
-        email: form.email.trim(),
-        password: form.password,
-        options: { data: { full_name: form.full_name.trim() } },
-      })
-
-      if (error) { setFormError(error.message); return }
-      if (!data.user) { setFormError('Erreur lors de la création.'); return }
+      const { userId, error } = await signUpEmployee(form.email.trim(), form.password, form.full_name.trim())
+      if (error || !userId) { setFormError(error ?? 'Erreur lors de la création.'); return }
 
       // Met à jour le profil avec shop_id et rôle terrain
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({
-          shop_id: profile.shop_id,
-          role: 'terrain',
-          full_name: form.full_name.trim(),
-        })
-        .eq('id', data.user.id)
+      const { error: profileError } = await updateProfile(userId, {
+        shop_id: profile.shop_id,
+        role: 'terrain',
+        full_name: form.full_name.trim(),
+      })
 
       if (profileError) { setFormError(profileError.message); return }
 
@@ -129,7 +115,7 @@ export default function EmployesScreen() {
         {
           text: 'Retirer', style: 'destructive',
           onPress: async () => {
-            await supabase.from('profiles').update({ shop_id: null, role: 'terrain' }).eq('id', emp.id)
+            await updateProfile(emp.id, { shop_id: null, role: 'terrain' })
             loadStats()
           },
         },

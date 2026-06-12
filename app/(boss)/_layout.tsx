@@ -1,45 +1,55 @@
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
-import { AppName } from '../../components/AppName'
-import { MaterialTopTabs, topTabScreenOptions } from '../../components/TopTabLayout'
+import { Stack } from 'expo-router'
+import { StyleSheet, View } from 'react-native'
+import { AppDrawer } from '../../components/AppDrawer'
 import { Colors } from '../../constants/colors'
-import { useAuth } from '../../hooks/useAuth'
+import { DrawerProvider } from '../../hooks/useDrawer'
 
-export default function BossLayout() {
-  const { profile, signOut } = useAuth()
+const BOSS_NAV = [
+  { route: '/(boss)/',            label: 'Tableau de bord' },
+  { route: '/(boss)/gestion',     label: 'Gestion' },
+  { route: '/(boss)/fournisseurs', label: 'Fournisseurs' },
+  { route: '/(boss)/historique',  label: 'Historique ventes' },
+  { route: '/(boss)/marges',      label: 'Marges & Finances' },
+  { route: '/(boss)/employes',    label: 'Équipe' },
+  { route: '/(boss)/finances',    label: 'Dossier Financier' },
+  { route: '/(boss)/profil',      label: 'Mon Profil' },
+]
 
+function BossContent() {
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
-      <View style={styles.header}>
-        <View style={{ flex: 1 }}>
-          <AppName size="md" dark />
-          <Text style={styles.subtitle}>👑 Boss · {profile?.full_name ?? '—'} <Text style={styles.live}>🟢</Text></Text>
-        </View>
-        <TouchableOpacity onPress={() => signOut()} style={styles.logoutBtn}>
-          <Text style={styles.logoutText}>↩</Text>
-        </TouchableOpacity>
-      </View>
-      <MaterialTopTabs screenOptions={{ ...topTabScreenOptions, tabBarActiveTintColor: Colors.mint, tabBarIndicatorStyle: { backgroundColor: Colors.mint, height: 3, borderRadius: 2 } }}>
-        <MaterialTopTabs.Screen name="index"       options={{ title: 'Dashboard' }} />
-        <MaterialTopTabs.Screen name="gestion"     options={{ title: 'Gestion' }} />
-        <MaterialTopTabs.Screen name="fournisseurs" options={{ title: 'Fournisseurs' }} />
-        <MaterialTopTabs.Screen name="historique"  options={{ title: 'Historique' }} />
-        <MaterialTopTabs.Screen name="marges"      options={{ title: 'Marges' }} />
-        <MaterialTopTabs.Screen name="employes"    options={{ title: 'Équipe' }} />
-        <MaterialTopTabs.Screen name="finances"    options={{ title: 'Finances' }} />
-        <MaterialTopTabs.Screen name="profil"      options={{ title: 'Profil' }} />
-      </MaterialTopTabs>
-    </SafeAreaView>
+    <View style={styles.root}>
+      <Stack
+        screenOptions={{
+          headerStyle: { backgroundColor: Colors.forest },
+          headerTintColor: '#fff',
+          headerTitleStyle: { fontWeight: '700', fontSize: 17 },
+          headerShadowVisible: false,
+          contentStyle: { backgroundColor: Colors.background },
+        }}
+      >
+        <Stack.Screen name="index"        options={{ title: 'Tableau de bord' }} />
+        <Stack.Screen name="gestion"      options={{ title: 'Gestion' }} />
+        <Stack.Screen name="fournisseurs" options={{ title: 'Fournisseurs' }} />
+        <Stack.Screen name="fournisseur-form" options={{ title: 'Nouveau fournisseur' }} />
+        <Stack.Screen name="fiche-client"    options={{ title: 'Fiche client' }} />
+        <Stack.Screen name="historique"   options={{ title: 'Historique des ventes' }} />
+        <Stack.Screen name="marges"       options={{ title: 'Marges & Finances' }} />
+        <Stack.Screen name="employes"     options={{ title: 'Équipe' }} />
+        <Stack.Screen name="finances"     options={{ title: 'Dossier Financier' }} />
+        <Stack.Screen name="profil"       options={{ title: 'Mon Profil' }} />
+      </Stack>
+      {/* Drawer persistant sur tous les écrans */}
+      <AppDrawer items={BOSS_NAV} accentColor={Colors.mint} />
+    </View>
   )
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.forest },
-  appName: { fontSize: 22, fontWeight: '900', color: '#fff' },
-  appNameMint: { color: Colors.mint },
-  subtitle: { fontSize: 12, color: Colors.heroMuted, marginTop: 1 },
-  live: { color: Colors.mint },
-  logoutBtn: { padding: 8, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 10 },
-  logoutText: { fontSize: 18, color: 'rgba(255,255,255,0.7)' },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 12, backgroundColor: Colors.forest },
-})
+export default function GerantLayout() {
+  return (
+    <DrawerProvider>
+      <BossContent />
+    </DrawerProvider>
+  )
+}
+
+const styles = StyleSheet.create({ root: { flex: 1 } })

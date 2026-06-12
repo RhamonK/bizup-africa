@@ -33,6 +33,15 @@ yarn-error.*
 # local env files
 .env*.local
 
+# build/deploy config (clés gérées via variables EAS)
+eas.json
+google-service-account.json
+
+# outillage local / notes de travail
+
+
+BETA_TOGO.md
+
 # typescript
 *.tsbuildinfo
 
