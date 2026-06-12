@@ -66,7 +66,13 @@ cp .env.example .env
 npx expo start
 ```
 
-Type-check : `npx tsc --noEmit`
+## Qualité
+
+```bash
+npm run typecheck   # TypeScript strict, 0 erreur
+npm run lint        # ESLint (eslint-config-expo)
+npm test            # Jest — formatage FCFA, file de synchronisation offline
+```
 
 Build APK de test : `eas build --platform android --profile preview` (nécessite un compte [expo.dev](https://expo.dev))
 
