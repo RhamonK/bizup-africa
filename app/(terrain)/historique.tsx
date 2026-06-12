@@ -41,7 +41,6 @@ export default function HistoriqueScreen() {
     : sales.filter(s => s.items?.some(i => i.product_id === filterProduct))
 
   const totalToday = filtered.filter(s => s.date === new Date().toISOString().split('T')[0]).reduce((sum, s) => sum + s.paid_amount, 0)
-  const totalAll = filtered.reduce((sum, s) => sum + s.paid_amount, 0)
 
   // Grouper par date
   const grouped: Record<string, Sale[]> = {}
@@ -96,7 +95,7 @@ export default function HistoriqueScreen() {
               const firstItem = sale.items?.[0]
               return (
                 <View key={sale.id} style={styles.saleCard}>
-                  <ProductImage name={firstItem?.product?.name ?? ''} photoUrl={(firstItem?.product as any)?.photo_url} size={44} borderRadius={12} />
+                  <ProductImage name={firstItem?.product?.name ?? ''} photoUrl={firstItem?.product?.photo_url} size={44} borderRadius={12} />
                   <View style={{ flex: 1, marginLeft: 10 }}>
                     <Text style={styles.saleName}>
                       {sale.items?.map(i => `${fmtQty(i.quantity)} ${i.product?.unit ?? ''} ${i.product?.name ?? ''}`).join(', ')}
@@ -109,8 +108,8 @@ export default function HistoriqueScreen() {
                     <Text style={[styles.saleAmount, sale.credit_amount > 0 && { color: Colors.amber }]}>
                       {sale.paid_amount.toLocaleString('fr-FR')} F
                     </Text>
-                    <View style={[styles.modeBadge, { backgroundColor: PAY_BADGE.cash.bg }]}>
-                      <Text style={[styles.modeBadgeText, { color: PAY_BADGE.cash.color }]}>Cash</Text>
+                    <View style={[styles.modeBadge, { backgroundColor: badge.bg }]}>
+                      <Text style={[styles.modeBadgeText, { color: badge.color }]}>{badge.label}</Text>
                     </View>
                   </View>
                 </View>

@@ -6,7 +6,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -17,13 +16,12 @@ import { Input } from '../../components/Input'
 import { Colors } from '../../constants/colors'
 import { useAuth } from '../../hooks/useAuth'
 import { useHamburgerHeader } from '../../hooks/useHamburgerHeader'
-import { supabase } from '../../lib/supabase'
-
-const JOB_TITLES = ['Vendeur/Vendeuse', 'Caissier/Caissière', 'Livreur/Livreuse', 'Gestionnaire stock', 'Superviseur']
+import { changePassword as changePasswordRequest } from '../../services/auth'
+import { updateProfile } from '../../services/profiles'
 
 export default function TerrainProfilScreen() {
   useHamburgerHeader()
-  const { profile, refreshProfile, signOut } = useAuth()
+  const { profile, refreshProfile } = useAuth()
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({
     full_name: '',
@@ -43,13 +41,17 @@ export default function TerrainProfilScreen() {
   async function saveProfile() {
     if (!profile) return
     setSaving(true)
-    await supabase.from('profiles').update({
+    const { error } = await updateProfile(profile.id, {
       full_name: form.full_name.trim(),
       phone: form.phone || null,
       avatar_url: form.avatar_url,
-    }).eq('id', profile.id)
+    })
     await refreshProfile()
     setSaving(false)
+    if (error) {
+      Alert.alert('Erreur', 'Les modifications n\'ont pas pu être enregistrées. Réessaie.')
+      return
+    }
     Alert.alert('Enregistré ✅')
   }
 
@@ -62,16 +64,9 @@ export default function TerrainProfilScreen() {
     if (pwForm.next === pwForm.current) { setPwError('Le nouveau doit être différent de l\'ancien.'); return }
 
     setSavingPw(true)
-    // Vérifier l'ancien mot de passe via re-authentification
-    const { data: { user } } = await supabase.auth.getUser()
-    const { error: signInErr } = await supabase.auth.signInWithPassword({
-      email: user?.email ?? '', password: pwForm.current,
-    })
-    if (signInErr) { setSavingPw(false); setPwError('Mot de passe actuel incorrect.'); return }
-
-    const { error } = await supabase.auth.updateUser({ password: pwForm.next })
+    const errorMessage = await changePasswordRequest(pwForm.current, pwForm.next)
     setSavingPw(false)
-    if (error) { setPwError(error.message); return }
+    if (errorMessage) { setPwError(errorMessage); return }
     setPwForm({ current: '', next: '', confirm: '' })
     Alert.alert('Mot de passe modifié ✅')
   }

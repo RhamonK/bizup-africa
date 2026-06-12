@@ -17,25 +17,17 @@ export async function getClientById(clientId: string) {
     .single()
 }
 
+/** Paiement + décrément de dette en une transaction Postgres (RPC, plancher à 0). */
 export async function addCreditPayment(clientId: string, amount: number) {
-  const { error: paymentErr } = await supabase
-    .from('credit_payments')
-    .insert({ client_id: clientId, amount, date: new Date().toISOString().split('T')[0] })
-  if (paymentErr) return { data: null, error: paymentErr }
+  return supabase.rpc('apply_credit_payment', { p_client_id: clientId, p_amount: amount })
+}
 
-  const { data: client, error: fetchErr } = await supabase
-    .from('clients')
-    .select('total_debt')
-    .eq('id', clientId)
-    .single()
-  if (fetchErr) return { data: null, error: fetchErr }
-
+export async function getClientsByDebt(shopId: string) {
   return supabase
     .from('clients')
-    .update({ total_debt: Math.max(0, client.total_debt - amount) })
-    .eq('id', clientId)
-    .select()
-    .single()
+    .select('*')
+    .eq('shop_id', shopId)
+    .order('total_debt', { ascending: false })
 }
 
 export async function updateClient(clientId: string, data: Partial<Client>) {

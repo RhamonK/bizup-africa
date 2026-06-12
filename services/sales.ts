@@ -109,9 +109,24 @@ export async function getSalesSummary(shopId: string, fromDate?: string) {
   return query
 }
 
+export interface SaleItemByShopRow {
+  product_id: string
+  unit_price: number
+  quantity: number
+  products: { name: string; shop_id: string } | null
+}
+
 export async function getSaleItemsByShop(shopId: string) {
-  return supabase
+  const { data, error } = await supabase
     .from('sale_items')
     .select('product_id, unit_price, quantity, products!inner(name, shop_id)')
     .eq('products.shop_id', shopId)
+  // PostgREST renvoie un objet pour cette relation to-one, mais le client non typé infère un tableau
+  return { data: (data ?? []) as unknown as SaleItemByShopRow[], error }
+}
+
+/** Ligne renvoyée par getSalesSummary / getSalesTrend. */
+export interface SaleAmountRow {
+  paid_amount: number
+  date: string
 }

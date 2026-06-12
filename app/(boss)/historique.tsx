@@ -115,7 +115,7 @@ export default function BossHistoriqueScreen() {
                     {sale.items?.map(i => `${fmtQty(i.quantity)} ${i.product?.unit ?? ''} ${i.product?.name ?? ''}`).join(', ') || '—'}
                   </Text>
                   <Text style={styles.cardSub}>
-                    {sale.client?.name ?? 'Comptant'} · {(sale.creator as any)?.full_name ?? '—'} · {new Date(sale.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                    {sale.client?.name ?? 'Comptant'} · {sale.creator?.full_name ?? '—'} · {new Date(sale.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                   </Text>
                 </View>
                 <View style={{ alignItems: 'flex-end' }}>

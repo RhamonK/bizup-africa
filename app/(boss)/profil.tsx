@@ -16,7 +16,9 @@ import { Input } from '../../components/Input'
 import { Colors } from '../../constants/colors'
 import { useAuth } from '../../hooks/useAuth'
 import { useHamburgerHeader } from '../../hooks/useHamburgerHeader'
-import { supabase } from '../../lib/supabase'
+import { changePassword as changePasswordRequest } from '../../services/auth'
+import { updateProfile } from '../../services/profiles'
+import { getShop, updateShop } from '../../services/shops'
 
 export default function BossProfilScreen() {
   useHamburgerHeader()
@@ -39,27 +41,33 @@ export default function BossProfilScreen() {
 
   async function loadShop() {
     if (!profile?.shop_id) return
-    const { data } = await supabase.from('shops').select('name, city, country').eq('id', profile.shop_id).single()
+    const { data } = await getShop(profile.shop_id)
     if (data) { setShop(data); setShopForm({ name: data.name, city: data.city, country: data.country }) }
   }
 
   async function saveProfile() {
     if (!profile) return
     setSaving(true)
-    await Promise.all([
-      supabase.from('profiles').update({
+    const [profileRes, shopRes] = await Promise.all([
+      updateProfile(profile.id, {
         full_name: form.full_name.trim(),
         phone: form.phone || null,
         avatar_url: form.avatar_url,
-      }).eq('id', profile.id),
-      profile.shop_id ? supabase.from('shops').update({
-        name: shopForm.name.trim(),
-        city: shopForm.city.trim(),
-        country: shopForm.country.trim(),
-      }).eq('id', profile.shop_id) : Promise.resolve(),
+      }),
+      profile.shop_id
+        ? updateShop(profile.shop_id, {
+            name: shopForm.name.trim(),
+            city: shopForm.city.trim(),
+            country: shopForm.country.trim(),
+          })
+        : Promise.resolve({ error: null }),
     ])
     await refreshProfile()
     setSaving(false)
+    if (profileRes.error || shopRes.error) {
+      Alert.alert('Erreur', 'Les modifications n\'ont pas pu être enregistrées. Réessaie.')
+      return
+    }
     Alert.alert('Profil mis à jour')
   }
 
@@ -72,18 +80,9 @@ export default function BossProfilScreen() {
     if (pwForm.next === pwForm.current) { setPwError("Le nouveau doit être différent de l'ancien."); return }
 
     setSavingPw(true)
-
-    // Étape 1 — vérifier l'ancien via re-auth
-    const { data: { user } } = await supabase.auth.getUser()
-    const { error: signInErr } = await supabase.auth.signInWithPassword({
-      email: user?.email ?? '', password: pwForm.current,
-    })
-    if (signInErr) { setSavingPw(false); setPwError('Mot de passe actuel incorrect.'); return }
-
-    // Étape 2 — changer
-    const { error } = await supabase.auth.updateUser({ password: pwForm.next })
+    const errorMessage = await changePasswordRequest(pwForm.current, pwForm.next)
     setSavingPw(false)
-    if (error) { setPwError(error.message); return }
+    if (errorMessage) { setPwError(errorMessage); return }
     setPwForm({ current: '', next: '', confirm: '' })
     Alert.alert('Mot de passe modifié')
   }

@@ -14,8 +14,8 @@ import { Input } from '../../components/Input'
 import { Colors } from '../../constants/colors'
 import { useAuth } from '../../hooks/useAuth'
 import { useHamburgerHeader } from '../../hooks/useHamburgerHeader'
-import { supabase } from '../../lib/supabase'
 import { Client, PaymentPref, Product, Profile } from '../../lib/types'
+import { signUpEmployee } from '../../services/auth'
 import { createClient, deleteClient, getClients, updateClient } from '../../services/clients'
 import { createProduct, deleteProduct, getProducts, updateProduct } from '../../services/products'
 import { getEmployees, updateProfile } from '../../services/profiles'
@@ -114,7 +114,7 @@ function ProduitsTab({ shopId }: { shopId: string }) {
   async function save() {
     if (!form.name.trim() || !form.current_price) return
     setSaving(true)
-    const payload: any = {
+    const payload: Partial<Product> = {
       name: form.name.trim(), unit: form.unit,
       current_price: parseFloat(form.current_price),
       alert_threshold: parseFloat(form.alert_threshold) || 5,
@@ -415,9 +415,9 @@ function EmployeesTab({ shopId, profile }: { shopId: string; profile: Profile })
       } else {
         if (!form.email.trim() || !form.password.trim()) { setError('Email et mot de passe obligatoires.'); return }
         if (form.password.length < 6) { setError('Minimum 6 caractères pour le mot de passe.'); return }
-        const { data, error: authError } = await supabase.auth.signUp({ email: form.email.trim(), password: form.password, options: { data: { full_name: form.full_name.trim() } } })
-        if (authError || !data.user) { setError(authError?.message ?? 'Erreur création.'); return }
-        await updateProfile(data.user.id, { shop_id: shopId, role: 'terrain', full_name: form.full_name.trim(), phone: form.phone || null, job_title: form.job_title, salary: form.salary ? parseFloat(form.salary) : null, hire_date: form.hire_date || null, avatar_url: form.avatar_url })
+        const { userId, error: authError } = await signUpEmployee(form.email.trim(), form.password, form.full_name.trim())
+        if (authError || !userId) { setError(authError ?? 'Erreur création.'); return }
+        await updateProfile(userId, { shop_id: shopId, role: 'terrain', full_name: form.full_name.trim(), phone: form.phone || null, job_title: form.job_title, salary: form.salary ? parseFloat(form.salary) : null, hire_date: form.hire_date || null, avatar_url: form.avatar_url })
         Alert.alert('Compte créé ✅', `Identifiants à donner :\nEmail : ${form.email}\nMot de passe : ${form.password}`)
       }
       setModal(false); load()

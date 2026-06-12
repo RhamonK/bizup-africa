@@ -10,14 +10,12 @@ import { Button } from '../../components/Button'
 import { ClientAvatar, LEVEL_COLORS, LEVEL_ICON, LEVEL_LABEL } from '../../components/ClientAvatar'
 import { Input } from '../../components/Input'
 import { Colors } from '../../constants/colors'
-import { useAuth } from '../../hooks/useAuth'
 import { Client, Sale } from '../../lib/types'
 import { addCreditPayment, getClientById, getClientSalesHistory } from '../../services/clients'
 import { fmt, formatDate } from '../../utils/helpers'
 
 export default function FicheClientTerrain() {
   const { clientId } = useLocalSearchParams<{ clientId: string }>()
-  const { profile } = useAuth()
 
   const [client, setClient] = useState<Client | null>(null)
   const [salesHistory, setSalesHistory] = useState<Sale[]>([])

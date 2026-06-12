@@ -16,8 +16,8 @@ import { Input } from '../../components/Input'
 import { Colors } from '../../constants/colors'
 import { useAuth } from '../../hooks/useAuth'
 import { useHamburgerHeader } from '../../hooks/useHamburgerHeader'
-import { supabase } from '../../lib/supabase'
 import { Profile, Sale } from '../../lib/types'
+import { signUpEmployee } from '../../services/auth'
 import { getEmployees, updateProfile } from '../../services/profiles'
 import { getEmployeeSales } from '../../services/sales'
 
@@ -82,18 +82,11 @@ export default function EmployesScreen() {
 
     setSaving(true)
     try {
-      // Crée le compte auth via Supabase Admin (ou signUp)
-      const { data, error } = await supabase.auth.signUp({
-        email: form.email.trim(),
-        password: form.password,
-        options: { data: { full_name: form.full_name.trim() } },
-      })
-
-      if (error) { setFormError(error.message); return }
-      if (!data.user) { setFormError('Erreur lors de la création.'); return }
+      const { userId, error } = await signUpEmployee(form.email.trim(), form.password, form.full_name.trim())
+      if (error || !userId) { setFormError(error ?? 'Erreur lors de la création.'); return }
 
       // Met à jour le profil avec shop_id et rôle terrain
-      const { error: profileError } = await updateProfile(data.user.id, {
+      const { error: profileError } = await updateProfile(userId, {
         shop_id: profile.shop_id,
         role: 'terrain',
         full_name: form.full_name.trim(),

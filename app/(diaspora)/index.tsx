@@ -5,27 +5,14 @@ import { Colors } from '../../constants/colors'
 import { useAuth } from '../../hooks/useAuth'
 import { useHamburgerHeader } from '../../hooks/useHamburgerHeader'
 import { getSeasonAlert } from '../../lib/season'
-import { supabase } from '../../lib/supabase'
+import { DiasporaSnapshot, getDiasporaSnapshot } from '../../services/dashboard'
 import { fmt, fmtQty } from '../../utils/helpers'
 import { ProductImage } from '../../components/ProductImage'
-
-interface Stats {
-  revenueToday: number
-  revenueWeek: number
-  salesCount: number
-  debtTotal: number
-  trend30: number[]
-  trend30Labels: string[]
-  topProducts: { name: string; revenue: number; qty: number }[]
-  lowStockProducts: { name: string; qty: number; unit: string; threshold: number }[]
-  overdueCreditsCount: number
-  shopName: string
-}
 
 export default function DiasporaHome() {
   useHamburgerHeader()
   const { profile } = useAuth()
-  const [stats, setStats] = useState<Stats | null>(null)
+  const [stats, setStats] = useState<DiasporaSnapshot | null>(null)
   const [refreshing, setRefreshing] = useState(false)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
 
@@ -37,70 +24,9 @@ export default function DiasporaHome() {
 
   async function load() {
     if (!profile?.shop_id) return
-    const shopId = profile.shop_id
-    const now = new Date()
-    const today = now.toISOString().split('T')[0]
-    const sevenDaysAgo = new Date(now.getTime() - 7 * 86400000).toISOString().split('T')[0]
-    const thirtyDaysAgo = new Date(now.getTime() - 29 * 86400000).toISOString().split('T')[0]
-
-    const [shopRes, dayRes, trend30Res, debtRes, productsRes, overdueRes] = await Promise.all([
-      supabase.from('shops').select('name').eq('id', shopId).single(),
-      supabase.from('sales').select('paid_amount, items:sale_items(quantity, total, product:products(name))').eq('shop_id', shopId).gte('date', today),
-      supabase.from('sales').select('total_amount, date').eq('shop_id', shopId).gte('date', thirtyDaysAgo).order('date'),
-      supabase.from('clients').select('total_debt').eq('shop_id', shopId).gt('total_debt', 0),
-      supabase.from('products').select('name, stock_quantity, alert_threshold, unit').eq('shop_id', shopId),
-      supabase.from('sales').select('id').eq('shop_id', shopId).gt('credit_amount', 0).lt('date', sevenDaysAgo),
-    ])
-
-    // 30-day trend
-    const days30 = Array.from({ length: 30 }, (_, i) => {
-      const d = new Date(now.getTime() - (29 - i) * 86400000)
-      return d.toISOString().split('T')[0]
-    })
-    const trend30 = Array(30).fill(0)
-    ;(trend30Res.data ?? []).forEach((s: any) => {
-      const idx = days30.indexOf(s.date)
-      if (idx >= 0) trend30[idx] += s.total_amount
-    })
-    const trend30Labels = days30.map(d => new Date(d).getDate().toString())
-
-    // Week KPI from 30-day data
-    const revenueWeek = (trend30Res.data ?? [])
-      .filter((s: any) => s.date >= sevenDaysAgo)
-      .reduce((sum: number, s: any) => sum + s.total_amount, 0)
-
-    // Top 3 products today
-    const prodMap: Record<string, { name: string; revenue: number; qty: number }> = {}
-    ;(dayRes.data ?? []).forEach((sale: any) => {
-      ;(sale.items ?? []).forEach((item: any) => {
-        const name = item.product?.name ?? 'Inconnu'
-        if (!prodMap[name]) prodMap[name] = { name, revenue: 0, qty: 0 }
-        prodMap[name].revenue += item.total
-        prodMap[name].qty += item.quantity
-      })
-    })
-    const topProducts = Object.values(prodMap)
-      .sort((a, b) => b.revenue - a.revenue)
-      .slice(0, 3)
-
-    // Low stock
-    const lowStockProducts = (productsRes.data ?? [])
-      .filter((p: any) => p.stock_quantity <= p.alert_threshold)
-      .map((p: any) => ({ name: p.name, qty: p.stock_quantity, unit: p.unit, threshold: p.alert_threshold }))
-
+    const snapshot = await getDiasporaSnapshot(profile.shop_id)
     setLastUpdated(new Date())
-    setStats({
-      revenueToday: (dayRes.data ?? []).reduce((s: number, r: any) => s + r.paid_amount, 0),
-      revenueWeek,
-      salesCount: dayRes.data?.length ?? 0,
-      debtTotal: (debtRes.data ?? []).reduce((s: number, r: any) => s + r.total_debt, 0),
-      trend30,
-      trend30Labels,
-      topProducts,
-      lowStockProducts,
-      overdueCreditsCount: overdueRes.data?.length ?? 0,
-      shopName: shopRes.data?.name ?? 'Commerce',
-    })
+    setStats(snapshot)
   }
 
   const season = getSeasonAlert()

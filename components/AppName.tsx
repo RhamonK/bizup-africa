@@ -1,4 +1,4 @@
-import { StyleSheet, Text, TextStyle, View } from 'react-native'
+import { StyleSheet, Text, View } from 'react-native'
 import { Colors } from '../constants/colors'
 
 interface Props {

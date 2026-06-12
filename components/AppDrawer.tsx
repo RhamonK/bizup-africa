@@ -1,6 +1,6 @@
 import { usePathname, useRouter } from 'expo-router'
 import {
-  Animated, Dimensions, ScrollView,
+  Animated, ScrollView,
   StyleSheet, Text, TouchableOpacity,
   TouchableWithoutFeedback, View,
 } from 'react-native'
@@ -22,8 +22,6 @@ interface Props {
   accentColor?: string
 }
 
-const { width: SCREEN_W } = Dimensions.get('window')
-
 export function AppDrawer({ items, activeRoute: activeProp, accentColor = Colors.mint }: Props) {
   const { isOpen, close, translateX } = useDrawer()
   const { profile, signOut } = useAuth()
@@ -39,7 +37,7 @@ export function AppDrawer({ items, activeRoute: activeProp, accentColor = Colors
 
   function navigate(route: string) {
     close()
-    setTimeout(() => router.push(route as any), 50)
+    setTimeout(() => router.push(route), 50)
   }
 
   function handleSignOut() {
@@ -138,7 +136,7 @@ export function ProfileHeaderBtn() {
 
   return (
     <TouchableOpacity
-      onPress={() => router.push(profilRoute as any)}
+      onPress={() => router.push(profilRoute)}
       style={styles.profileBtn}
       hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
     >

@@ -7,13 +7,13 @@ import { Colors } from '../../constants/colors'
 import { useAuth } from '../../hooks/useAuth'
 import { useHamburgerHeader } from '../../hooks/useHamburgerHeader'
 import { getSeasonAlert } from '../../lib/season'
-import { supabase } from '../../lib/supabase'
-import { Client, Product, Sale } from '../../lib/types'
-import { fmt, formatDate, fmtQty } from '../../utils/helpers'
+import { Client, Product, Sale, SaleItem } from '../../lib/types'
+import { formatDate, fmtQty } from '../../utils/helpers'
 import { ProductImage } from '../../components/ProductImage'
 import { getClients } from '../../services/clients'
 import { getProducts } from '../../services/products'
-import { getSalesByDate, getSalesTrend } from '../../services/sales'
+import { subscribeToShopSales } from '../../services/realtime'
+import { getSalesByDate, getSalesTrend, SaleAmountRow } from '../../services/sales'
 
 export default function BossDashboard() {
   const { profile } = useAuth()
@@ -22,7 +22,6 @@ export default function BossDashboard() {
   const [todaySales, setTodaySales] = useState<Sale[]>([])
   const [alertProducts, setAlertProducts] = useState<Product[]>([])
   const [products, setProducts] = useState<Product[]>([])
-  const [clients, setClients] = useState<Client[]>([])
   const [debtTotal, setDebtTotal] = useState(0)
   const [trend, setTrend] = useState<number[]>(Array(7).fill(0))
   const [topProducts, setTopProducts] = useState<{ name: string; revenue: number; qty: number }[]>([])
@@ -36,15 +35,7 @@ export default function BossDashboard() {
     loadAll()
     if (!profile?.shop_id) return
 
-    const channelName = `boss-sales-${profile.shop_id}`
-    supabase.removeChannel(supabase.channel(channelName))
-
-    const channel = supabase
-      .channel(channelName)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'sales', filter: `shop_id=eq.${profile.shop_id}` }, () => loadAll())
-      .subscribe()
-
-    return () => { supabase.removeChannel(channel) }
+    return subscribeToShopSales(profile.shop_id, loadAll)
   }, [profile?.shop_id])
 
   async function loadAll() {
@@ -69,20 +60,19 @@ export default function BossDashboard() {
       setAlertProducts(productRes.data.filter((p: Product) => p.stock_quantity <= p.alert_threshold))
     }
     if (clientRes.data) {
-      setClients(clientRes.data)
-      setDebtTotal(clientRes.data.filter((c: any) => c.total_debt > 0).reduce((s: number, r: any) => s + r.total_debt, 0))
+      setDebtTotal(clientRes.data.reduce((s: number, c: Client) => s + Math.max(0, c.total_debt), 0))
     }
 
     const t = Array(7).fill(0)
-    ;(weekRes.data ?? []).forEach((s: any) => {
+    ;(weekRes.data ?? []).forEach((s: SaleAmountRow) => {
       const idx = days7.indexOf(s.date)
       if (idx >= 0) t[idx] += s.paid_amount
     })
     setTrend(t)
 
     const prodMap: Record<string, { name: string; revenue: number; qty: number }> = {}
-    ;(todayRes.data ?? []).forEach((sale: any) => {
-      ;(sale.items ?? []).forEach((item: any) => {
+    ;(todayRes.data ?? []).forEach((sale: Sale) => {
+      ;(sale.items ?? []).forEach((item: SaleItem) => {
         const name = item.product?.name ?? 'Inconnu'
         if (!prodMap[name]) prodMap[name] = { name, revenue: 0, qty: 0 }
         prodMap[name].revenue += item.total
@@ -188,7 +178,7 @@ export default function BossDashboard() {
               const firstItem = sale.items?.[0]
               return (
                 <View key={sale.id} style={styles.prodRow}>
-                  <ProductImage name={firstItem?.product?.name ?? ''} photoUrl={(firstItem?.product as any)?.photo_url} size={44} borderRadius={14} />
+                  <ProductImage name={firstItem?.product?.name ?? ''} photoUrl={firstItem?.product?.photo_url} size={44} borderRadius={14} />
                   <View style={{ flex: 1, marginLeft: 12 }}>
                     <Text style={styles.prodName}>
                       {sale.items?.map(i => `${fmtQty(i.quantity)} ${i.product?.unit ?? ''} ${i.product?.name ?? ''}`).join(', ') || '—'}

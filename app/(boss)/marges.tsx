@@ -3,9 +3,10 @@ import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native
 import { Colors } from '../../constants/colors'
 import { useAuth } from '../../hooks/useAuth'
 import { useHamburgerHeader } from '../../hooks/useHamburgerHeader'
-import { getProducts, getStockEntriesByShop } from '../../services/products'
-import { getSaleItemsByShop } from '../../services/sales'
-import { getPriceHistoryByShop } from '../../services/suppliers'
+import { Product } from '../../lib/types'
+import { getProducts, getStockEntriesByShop, StockEntryCostRow } from '../../services/products'
+import { getSaleItemsByShop, SaleItemByShopRow } from '../../services/sales'
+import { getPriceHistoryByShop, ShopPriceRow } from '../../services/suppliers'
 
 interface MargeRow {
   id: string
@@ -53,23 +54,23 @@ export default function MargesScreen() {
     const products = prodRes.data ?? []
 
     const salePrices: Record<string, number[]> = {}
-    ;(saleItemRes.data ?? []).forEach((si: any) => {
+    ;(saleItemRes.data ?? []).forEach((si: SaleItemByShopRow) => {
       if (!salePrices[si.product_id]) salePrices[si.product_id] = []
       salePrices[si.product_id].push(si.unit_price)
     })
 
     const buyPrices: Record<string, number[]> = {}
-    ;(priceHistRes.data ?? []).forEach((ph: any) => {
+    ;(priceHistRes.data ?? []).forEach((ph: ShopPriceRow) => {
       if (!buyPrices[ph.product_id]) buyPrices[ph.product_id] = []
       buyPrices[ph.product_id].push(ph.price_per_unit)
     })
 
-    ;(stockEntriesRes.data ?? []).forEach((se: any) => {
+    ;(stockEntriesRes.data ?? []).forEach((se: StockEntryCostRow) => {
       if (!buyPrices[se.product_id]) buyPrices[se.product_id] = []
       buyPrices[se.product_id].push(se.cost_per_unit)
     })
 
-    const result: MargeRow[] = products.map((p: any) => {
+    const result: MargeRow[] = products.map((p: Product) => {
       const sales = salePrices[p.id] ?? []
       const buys = buyPrices[p.id] ?? []
       const avgSale = sales.length ? sales.reduce((a, b) => a + b, 0) / sales.length : p.current_price

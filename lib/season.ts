@@ -13,10 +13,8 @@ export interface SeasonAlert {
 export function getSeasonAlert(date = new Date()): SeasonAlert {
   const month = date.getMonth() + 1 // 1-12
 
-  // Saison sèche : nov (11) → mars (3)
+  // Saison sèche : nov (11) → mars (3) — sinon saison des pluies (avril → oct)
   const isDry = month >= 11 || month <= 3
-  // Saison pluies : avril (4) → oct (10)
-  const isRainy = month >= 4 && month <= 10
 
   if (isDry) {
     // On est en saison sèche — quand arrivent les pluies ?

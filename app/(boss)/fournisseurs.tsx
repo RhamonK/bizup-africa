@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 import {
-  Alert,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -15,8 +14,8 @@ import { ReliabilityDots } from '../../components/ReliabilityDots'
 import { Colors } from '../../constants/colors'
 import { useAuth } from '../../hooks/useAuth'
 import { useHamburgerHeader } from '../../hooks/useHamburgerHeader'
-import { supabase } from '../../lib/supabase'
-import { PriceHistory, Product, Supplier } from '../../lib/types'
+import { PriceHistory, Supplier } from '../../lib/types'
+import { getRecentSupplierPrices, getSuppliersByReliability } from '../../services/suppliers'
 
 type SeasonFilter = 'dry' | 'rainy' | 'all_year' | 'all'
 
@@ -93,7 +92,6 @@ export default function FournisseursScreen() {
   useHamburgerHeader()
   const { profile } = useAuth()
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
-  const [products, setProducts] = useState<Product[]>([])
   const [priceHistory, setPriceHistory] = useState<Record<string, PriceHistory[]>>({})
   const [seasonFilter, setSeasonFilter] = useState<SeasonFilter>('all')
   const [refreshing, setRefreshing] = useState(false)
@@ -105,26 +103,14 @@ export default function FournisseursScreen() {
   async function loadData() {
     if (!profile?.shop_id) return
 
-    const { data: prods } = await supabase.from('products').select('*').eq('shop_id', profile.shop_id)
-    if (prods) setProducts(prods)
-
-    const { data: sup } = await supabase
-      .from('suppliers')
-      .select('*, products:supplier_products(*, product:products(*))')
-      .eq('shop_id', profile.shop_id)
-      .order('reliability', { ascending: false })
+    const { data: sup } = await getSuppliersByReliability(profile.shop_id)
 
     if (sup) {
       setSuppliers(sup)
       // Load price history for each supplier
       const histories: Record<string, PriceHistory[]> = {}
       await Promise.all(sup.map(async (s: Supplier) => {
-        const { data } = await supabase
-          .from('price_history')
-          .select('*, product:products(*)')
-          .eq('supplier_id', s.id)
-          .order('date', { ascending: false })
-          .limit(10)
+        const { data } = await getRecentSupplierPrices(s.id)
         if (data) histories[s.id] = data
       }))
       setPriceHistory(histories)

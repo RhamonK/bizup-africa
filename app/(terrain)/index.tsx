@@ -189,7 +189,7 @@ export default function TerrainHome() {
             const item = sale.items?.[0]
             return (
               <View key={sale.id} style={styles.saleRow}>
-                <ProductImage name={item?.product?.name ?? ''} photoUrl={(item?.product as any)?.photo_url} size={38} borderRadius={12} />
+                <ProductImage name={item?.product?.name ?? ''} photoUrl={item?.product?.photo_url} size={38} borderRadius={12} />
                 <View style={{ flex: 1, marginLeft: 10 }}>
                   <Text style={styles.saleName}>
                     {sale.items?.map(i => `${fmtQty(i.quantity)} ${i.product?.unit ?? ''} ${i.product?.name ?? ''}`).join(', ')}

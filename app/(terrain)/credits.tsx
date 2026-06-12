@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 import {
   Alert, Modal, RefreshControl, ScrollView,
   StyleSheet, Text, TouchableOpacity, View,
@@ -11,8 +11,8 @@ import { Input } from '../../components/Input'
 import { Colors } from '../../constants/colors'
 import { useAuth } from '../../hooks/useAuth'
 import { useHamburgerHeader } from '../../hooks/useHamburgerHeader'
-import { supabase } from '../../lib/supabase'
 import { Client } from '../../lib/types'
+import { addCreditPayment, getClientsByDebt } from '../../services/clients'
 
 export default function CreditsScreen() {
   useHamburgerHeader()
@@ -29,7 +29,7 @@ export default function CreditsScreen() {
 
   async function load() {
     if (!profile?.shop_id) return
-    const { data } = await supabase.from('clients').select('*').eq('shop_id', profile.shop_id).order('total_debt', { ascending: false })
+    const { data } = await getClientsByDebt(profile.shop_id)
     if (data) {
       setAllClients(data)
       setClients(data.filter((c: Client) => c.total_debt > 0))
@@ -46,20 +46,15 @@ export default function CreditsScreen() {
       return
     }
     setSaving(true)
-    await Promise.all([
-      supabase.from('credit_payments').insert({ client_id: selectedClient.id, amount, date: new Date().toISOString().split('T')[0] }),
-      supabase.from('clients').update({ total_debt: selectedClient.total_debt - amount }).eq('id', selectedClient.id),
-    ])
+    const { error } = await addCreditPayment(selectedClient.id, amount)
     setSaving(false)
+    if (error) {
+      Alert.alert('Erreur', 'Le paiement n\'a pas pu être enregistré. Vérifie ta connexion et réessaie.')
+      return
+    }
     setSelectedClient(null); setPaymentAmount('')
     Alert.alert('✅ Paiement enregistré', `${amount.toLocaleString('fr-FR')} F reçu de ${selectedClient.name}`)
     load()
-  }
-
-  // Calculer depuis combien de temps
-  function daysSince(dateStr: string) {
-    const d = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000)
-    return d > 0 ? `${d} jour${d > 1 ? 's' : ''}` : 'Aujourd\'hui'
   }
 
   return (

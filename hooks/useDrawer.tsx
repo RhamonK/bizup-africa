@@ -35,7 +35,8 @@ export function DrawerProvider({ children }: { children: React.ReactNode }) {
   }
 
   function toggle() {
-    isOpen ? close() : open()
+    if (isOpen) close()
+    else open()
   }
 
   return (

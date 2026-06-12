@@ -9,25 +9,28 @@ export async function getProducts(shopId: string) {
     .order('name')
 }
 
-export async function updateStock(productId: string, qty: number, costPerUnit: number) {
-  const { data: product, error: fetchErr } = await supabase
-    .from('products')
-    .select('stock_quantity')
-    .eq('id', productId)
-    .single()
-  if (fetchErr) return { data: null, error: fetchErr }
+export interface StockEntryInput {
+  quantity: number
+  cost_per_unit: number
+  supplier_id?: string | null
+  driver_name?: string | null
+  driver_phone?: string | null
+  notes?: string | null
+}
 
-  const { error: updateErr } = await supabase
-    .from('products')
-    .update({ stock_quantity: product.stock_quantity + qty })
-    .eq('id', productId)
-  if (updateErr) return { data: null, error: updateErr }
+/** Enregistre un arrivage : ligne stock_entries + incrément atomique du stock (RPC). */
+export async function addStockEntry(shopId: string, productId: string, entry: StockEntryInput) {
+  const { error: entryErr } = await supabase.from('stock_entries').insert({
+    shop_id: shopId,
+    product_id: productId,
+    date: new Date().toISOString().split('T')[0],
+    ...entry,
+  })
+  if (entryErr) return { error: entryErr }
 
-  return supabase
-    .from('stock_entries')
-    .insert({ product_id: productId, quantity: qty, cost_per_unit: costPerUnit, date: new Date().toISOString().split('T')[0] })
-    .select()
-    .single()
+  const { error: stockErr } = await supabase
+    .rpc('increment_stock', { p_id: productId, qty: entry.quantity })
+  return { error: stockErr }
 }
 
 export async function createProduct(shopId: string, data: Partial<Product>) {
@@ -44,6 +47,11 @@ export async function updateProduct(productId: string, data: Partial<Product>) {
 
 export async function deleteProduct(productId: string) {
   return supabase.from('products').delete().eq('id', productId)
+}
+
+export interface StockEntryCostRow {
+  product_id: string
+  cost_per_unit: number
 }
 
 export async function getStockEntriesByShop(shopId: string) {

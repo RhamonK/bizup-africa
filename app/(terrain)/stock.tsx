@@ -12,9 +12,9 @@ import { useAuth } from '../../hooks/useAuth'
 import { useHamburgerHeader } from '../../hooks/useHamburgerHeader'
 import { isOnline } from '../../lib/network'
 import { addStockEntryToQueue, flushStockQueue, getStockQueue } from '../../lib/offlineQueue'
-import { supabase } from '../../lib/supabase'
 import { Product, Supplier } from '../../lib/types'
-import { fmtQty } from '../../utils/helpers'
+import { addStockEntry, createProduct, getProducts } from '../../services/products'
+import { getSupplierContacts } from '../../services/suppliers'
 import { ProductImage } from '../../components/ProductImage'
 
 function stockStatus(p: Product) {
@@ -53,8 +53,8 @@ export default function StockScreen() {
     const remaining = await getStockQueue()
     setPendingStock(remaining.length)
     const [prodRes, supRes] = await Promise.all([
-      supabase.from('products').select('*').eq('shop_id', profile.shop_id).order('name'),
-      supabase.from('suppliers').select('id, name, phone').eq('shop_id', profile.shop_id),
+      getProducts(profile.shop_id),
+      getSupplierContacts(profile.shop_id),
     ])
     if (prodRes.data) setProducts(prodRes.data)
     if (supRes.data) setSuppliers(supRes.data)
@@ -68,17 +68,18 @@ export default function StockScreen() {
     try {
       if (isNewProduct) {
         if (!newName.trim()) { Alert.alert('Erreur', 'Donne un nom au produit.'); return }
-        const { data: p, error: prodErr } = await supabase.from('products').insert({
-          shop_id: profile.shop_id, name: newName.trim(), unit: newUnit,
+        // Produit créé à stock 0 — c'est l'arrivage ci-dessous qui pose le stock initial,
+        // pour que stock_entries reflète la vraie quantité reçue (coûts/marges).
+        const { data: p, error: prodErr } = await createProduct(profile.shop_id, {
+          name: newName.trim(), unit: newUnit,
           current_price: costPerUnit ? parseFloat(costPerUnit) * 1.3 : 0,
-          stock_quantity: parseFloat(addQty) || 0, alert_threshold: 5, alert_days_without_sale: 2,
-        }).select().single()
+          stock_quantity: 0, alert_threshold: 5, alert_days_without_sale: 2,
+        })
         if (prodErr || !p) { Alert.alert('Erreur', 'Le produit n\'a pas pu être créé. Vérifie ta connexion et réessaie.'); return }
         if (addQty) {
-          const { error: entryErr } = await supabase.from('stock_entries').insert({
-            shop_id: profile.shop_id, product_id: p.id,
-            quantity: parseFloat(addQty), cost_per_unit: parseFloat(costPerUnit) || 0,
-            date: new Date().toISOString().split('T')[0],
+          const { error: entryErr } = await addStockEntry(profile.shop_id, p.id, {
+            quantity: parseFloat(addQty),
+            cost_per_unit: parseFloat(costPerUnit) || 0,
             supplier_id: selectedSupplier || null,
             driver_name: driverName || null, driver_phone: driverPhone || null, notes: deliveryNotes || null,
           })
@@ -100,18 +101,13 @@ export default function StockScreen() {
           setModal(false); resetForm()
           return
         }
-        // RPC atomique : pas de lecture → addition → écriture (perte d'arrivage si 2 agents simultanés)
-        const [stockRes, entryRes] = await Promise.all([
-          supabase.rpc('increment_stock', { p_id: selectedProduct.id, qty: parseFloat(addQty) }),
-          supabase.from('stock_entries').insert({
-            shop_id: profile.shop_id, product_id: selectedProduct.id,
-            quantity: parseFloat(addQty), cost_per_unit: parseFloat(costPerUnit) || 0,
-            date: new Date().toISOString().split('T')[0],
-            supplier_id: selectedSupplier || null,
-            driver_name: driverName || null, driver_phone: driverPhone || null, notes: deliveryNotes || null,
-          }),
-        ])
-        if (stockRes.error || entryRes.error) {
+        const { error } = await addStockEntry(profile.shop_id, selectedProduct.id, {
+          quantity: parseFloat(addQty),
+          cost_per_unit: parseFloat(costPerUnit) || 0,
+          supplier_id: selectedSupplier || null,
+          driver_name: driverName || null, driver_phone: driverPhone || null, notes: deliveryNotes || null,
+        })
+        if (error) {
           Alert.alert('Erreur', 'L\'arrivage n\'a pas pu être enregistré. Vérifie ta connexion et réessaie.')
           return
         }
@@ -226,7 +222,7 @@ export default function StockScreen() {
               <>
                 <Text style={styles.fieldLabel}>Fournisseur (optionnel)</Text>
                 <View style={styles.prodGrid}>
-                  {suppliers.map((s: any) => (
+                  {suppliers.map(s => (
                     <TouchableOpacity key={s.id} style={[styles.prodChip, selectedSupplier === s.id && styles.prodChipActive]} onPress={() => setSelectedSupplier(selectedSupplier === s.id ? null : s.id)}>
                       <Text style={[styles.prodChipText, selectedSupplier === s.id && { color: '#fff' }]}>{s.name}</Text>
                     </TouchableOpacity>

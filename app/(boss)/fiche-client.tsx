@@ -5,7 +5,7 @@ import {
   Text, TouchableOpacity, View,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { useLocalSearchParams, useRouter } from 'expo-router'
+import { useLocalSearchParams } from 'expo-router'
 import { Button } from '../../components/Button'
 import { ClientAvatar, LEVEL_COLORS, LEVEL_ICON, LEVEL_LABEL } from '../../components/ClientAvatar'
 import { Input } from '../../components/Input'
@@ -27,7 +27,6 @@ const PAYMENT_LABELS: Record<PaymentPref, string> = {
 
 export default function FicheClientGerante() {
   const { clientId } = useLocalSearchParams<{ clientId: string }>()
-  const router = useRouter()
   const { profile } = useAuth()
 
   const [client, setClient] = useState<Client | null>(null)

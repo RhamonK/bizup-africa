@@ -5,7 +5,7 @@ import { Colors } from '../constants/colors'
 import { addToQueue } from '../lib/offlineQueue'
 import { Product } from '../lib/types'
 import { createSale } from '../services/sales'
-import { fmtQty, productEmoji } from '../utils/helpers'
+import { fmtQty } from '../utils/helpers'
 import { Button } from './Button'
 import { ProductImage } from './ProductImage'
 import { Input } from './Input'
@@ -117,7 +117,7 @@ export function SaleModal({ visible, onClose, products, shopId, agentId, onSaleC
         {/* Header */}
         <View style={s.header}>
           <TouchableOpacity
-            onPress={() => step === 1 ? (onClose(), reset()) : setStep(v => (v - 1) as any)}
+            onPress={() => step === 1 ? (onClose(), reset()) : setStep(v => (v === 3 ? 2 : 1))}
             style={s.backBtn}
           >
             <Text style={s.backText}>{step === 1 ? '✕ Fermer' : '← Retour'}</Text>

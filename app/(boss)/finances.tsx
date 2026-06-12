@@ -13,7 +13,8 @@ import { Card } from '../../components/Card'
 import { Colors } from '../../constants/colors'
 import { useAuth } from '../../hooks/useAuth'
 import { useHamburgerHeader } from '../../hooks/useHamburgerHeader'
-import { getSalesSummary, getSaleItemsByShop } from '../../services/sales'
+import { Client } from '../../lib/types'
+import { getSalesSummary, getSaleItemsByShop, SaleAmountRow, SaleItemByShopRow } from '../../services/sales'
 import { getClients } from '../../services/clients'
 import { getShop } from '../../services/shops'
 
@@ -84,10 +85,10 @@ export default function FinancesScreen() {
       getSaleItemsByShop(shopId),
     ])
 
-    const rev30 = (sales30.data ?? []).reduce((s: number, r: any) => s + r.paid_amount, 0)
-    const rev90 = (sales90.data ?? []).reduce((s: number, r: any) => s + r.paid_amount, 0)
-    const revTotal = (allSales.data ?? []).reduce((s: number, r: any) => s + r.paid_amount, 0)
-    const totalDebt = (debtRes.data ?? []).filter((c: any) => c.total_debt > 0).reduce((s: number, r: any) => s + r.total_debt, 0)
+    const rev30 = (sales30.data ?? []).reduce((s: number, r: SaleAmountRow) => s + r.paid_amount, 0)
+    const rev90 = (sales90.data ?? []).reduce((s: number, r: SaleAmountRow) => s + r.paid_amount, 0)
+    const revTotal = (allSales.data ?? []).reduce((s: number, r: SaleAmountRow) => s + r.paid_amount, 0)
+    const totalDebt = (debtRes.data ?? []).reduce((s: number, c: Client) => s + Math.max(0, c.total_debt), 0)
 
     // Days since first sale
     const firstSale = allSales.data?.[0]?.date
@@ -96,7 +97,7 @@ export default function FinancesScreen() {
 
     // Top product by quantity
     const productQty: Record<string, { name: string; qty: number }> = {}
-    ;(saleItems.data ?? []).forEach((si: any) => {
+    ;(saleItems.data ?? []).forEach((si: SaleItemByShopRow) => {
       if (!si.product_id) return
       const name = si.products?.name ?? 'Inconnu'
       if (!productQty[si.product_id]) productQty[si.product_id] = { name, qty: 0 }
