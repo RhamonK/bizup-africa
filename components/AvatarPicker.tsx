@@ -32,7 +32,7 @@ export function AvatarPicker({ userId, currentUrl, size = 80, onUploaded }: Avat
     if (result.canceled) return
 
     setUploading(true)
-    const { url, error } = await uploadAvatar(userId, result.assets[0].uri)
+    const { url, error } = await uploadAvatar(userId, result.assets[0].uri, result.assets[0].mimeType)
     setUploading(false)
 
     if (error || !url) {

@@ -30,7 +30,7 @@ export function ProductImagePicker({ productId, shopId, currentUrl, productName,
     if (result.canceled || !result.assets[0]) return
 
     setUploading(true)
-    const { url, error } = await uploadProductImage(shopId, productId, result.assets[0].uri)
+    const { url, error } = await uploadProductImage(shopId, productId, result.assets[0].uri, result.assets[0].mimeType)
     setUploading(false)
 
     if (error || !url) {
