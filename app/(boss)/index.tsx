@@ -2,15 +2,17 @@ import { useEffect, useState } from 'react'
 import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { AvatarDisplay } from '../../components/AvatarDisplay'
 import { BarChart } from '../../components/BarChart'
+import { PriceApprovalModal } from '../../components/PriceApprovalModal'
 import { SaleModal } from '../../components/SaleModal'
 import { Colors } from '../../constants/colors'
 import { useAuth } from '../../hooks/useAuth'
 import { useHamburgerHeader } from '../../hooks/useHamburgerHeader'
 import { getSeasonAlert } from '../../lib/season'
-import { Client, Product, Sale, SaleItem } from '../../lib/types'
+import { Client, PriceRequest, Product, Sale, SaleItem } from '../../lib/types'
 import { formatDate, fmtQty } from '../../utils/helpers'
 import { ProductImage } from '../../components/ProductImage'
 import { getClients } from '../../services/clients'
+import { getPendingPriceRequests, subscribeToPendingPriceRequests } from '../../services/priceRequests'
 import { getProducts } from '../../services/products'
 import { subscribeToShopSales } from '../../services/realtime'
 import { getSalesByDate, getSalesTrend, SaleAmountRow } from '../../services/sales'
@@ -27,6 +29,8 @@ export default function BossDashboard() {
   const [topProducts, setTopProducts] = useState<{ name: string; revenue: number; qty: number }[]>([])
   const [refreshing, setRefreshing] = useState(false)
   const [saleModal, setSaleModal] = useState(false)
+  const [priceRequests, setPriceRequests] = useState<PriceRequest[]>([])
+  const [approvalOpen, setApprovalOpen] = useState(false)
 
   const season = getSeasonAlert()
   const now = new Date()
@@ -34,9 +38,18 @@ export default function BossDashboard() {
   useEffect(() => {
     loadAll()
     if (!profile?.shop_id) return
+    loadPriceRequests()
 
-    return subscribeToShopSales(profile.shop_id, loadAll)
+    const unsubSales = subscribeToShopSales(profile.shop_id, loadAll)
+    const unsubPrices = subscribeToPendingPriceRequests(profile.shop_id, loadPriceRequests)
+    return () => { unsubSales(); unsubPrices() }
   }, [profile?.shop_id])
+
+  async function loadPriceRequests() {
+    if (!profile?.shop_id) return
+    const { data } = await getPendingPriceRequests(profile.shop_id)
+    if (data) setPriceRequests(data as unknown as PriceRequest[])
+  }
 
   async function loadAll() {
     if (!profile?.shop_id) return
@@ -130,6 +143,18 @@ export default function BossDashboard() {
         </View>
 
         <View style={styles.scroll}>
+          {/* Demandes de prix en attente — temps réel */}
+          {priceRequests.length > 0 && (
+            <TouchableOpacity style={styles.priceReqBanner} activeOpacity={0.85} onPress={() => setApprovalOpen(true)}>
+              <Text style={{ fontSize: 26 }}>🙋</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.priceReqTitle}>{priceRequests.length} demande(s) de prix</Text>
+                <Text style={styles.priceReqSub}>Un agent attend ta réponse · Tap pour répondre</Text>
+              </View>
+              <Text style={{ fontSize: 22, color: Colors.forest }}>→</Text>
+            </TouchableOpacity>
+          )}
+
           {/* Chart 7 jours */}
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Ventes — 7 jours</Text>
@@ -215,6 +240,14 @@ export default function BossDashboard() {
         agentId={profile?.id ?? ''}
         onSaleCreated={loadAll}
       />
+
+      <PriceApprovalModal
+        visible={approvalOpen}
+        onClose={() => setApprovalOpen(false)}
+        bossId={profile?.id ?? ''}
+        requests={priceRequests}
+        onResolved={loadPriceRequests}
+      />
     </View>
   )
 }
@@ -232,6 +265,9 @@ const styles = StyleSheet.create({
   kpiVal:        { fontSize: 15, fontWeight: '800', color: Colors.text },
   kpiLbl:        { fontSize: 9, color: Colors.textTertiary, marginTop: 3, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.4, textAlign: 'center' },
   scroll:        { padding: 16, gap: 12 },
+  priceReqBanner: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: Colors.goldLight, borderWidth: 1, borderColor: Colors.gold, borderRadius: 14, padding: 14 },
+  priceReqTitle:  { fontSize: 15, fontWeight: '800', color: Colors.text },
+  priceReqSub:    { fontSize: 12, color: Colors.textSecondary, marginTop: 1 },
   card:          { backgroundColor: '#fff', borderRadius: 18, padding: 18, shadowColor: Colors.forest, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 6, elevation: 2 },
   cardTitle:     { fontSize: 11, fontWeight: '700', color: Colors.textSecondary, textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 14 },
   alertRow:      { flexDirection: 'row', gap: 12, padding: 12, borderRadius: 10, marginBottom: 8, alignItems: 'flex-start' },

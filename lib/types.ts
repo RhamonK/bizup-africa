@@ -137,6 +137,25 @@ export interface SaleItem {
   product?: Product
 }
 
+export type PriceRequestStatus = 'pending' | 'approved' | 'rejected'
+
+export interface PriceRequest {
+  id: string
+  shop_id: string
+  agent_id: string
+  product_id: string | null
+  product_name: string
+  client_name: string | null
+  requested_price: number
+  approved_price: number | null
+  reason: string | null
+  status: PriceRequestStatus
+  resolved_by: string | null
+  created_at: string
+  resolved_at: string | null
+  agent?: Pick<Profile, 'full_name' | 'job_title'>
+}
+
 export interface DashboardStats {
   revenue_today: number
   revenue_week: number

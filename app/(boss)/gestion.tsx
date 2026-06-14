@@ -8,6 +8,7 @@ import { useFocusEffect, useRouter } from 'expo-router'
 import { AvatarDisplay } from '../../components/AvatarDisplay'
 import { AvatarPicker } from '../../components/AvatarPicker'
 import { Button } from '../../components/Button'
+import { ProductImage } from '../../components/ProductImage'
 import { ProductImagePicker } from '../../components/ProductImagePicker'
 import { Card } from '../../components/Card'
 import { Input } from '../../components/Input'
@@ -133,7 +134,7 @@ function ProduitsTab({ shopId }: { shopId: string }) {
   async function remove(p: Product) {
     Alert.alert('Supprimer', `Supprimer "${p.name}" ?`, [
       { text: 'Annuler', style: 'cancel' },
-      { text: 'Supprimer', style: 'destructive', onPress: async () => { await deleteProduct(p.id); load() } },
+      { text: 'Supprimer', style: 'destructive', onPress: async () => { await deleteProduct(p.id); setModal(false); load() } },
     ])
   }
 
@@ -142,16 +143,16 @@ function ProduitsTab({ shopId }: { shopId: string }) {
       <ScrollView contentContainerStyle={s.list}>
         <Button title="+ Nouveau produit" onPress={openCreate} style={{ marginBottom: 12 }} />
         {products.map(p => (
-          <Card key={p.id} style={s.row} padding={14}>
-            <View style={{ flex: 1 }}>
-              <Text style={s.rowName}>{p.name}</Text>
-              <Text style={s.rowSub}>{p.current_price.toLocaleString('fr-FR')} F/{p.unit} · Stock: {p.stock_quantity}</Text>
-            </View>
-            <View style={s.actions}>
-              <TouchableOpacity style={s.editBtn} onPress={() => openEdit(p)}><Text>✏️</Text></TouchableOpacity>
-              <TouchableOpacity style={s.deleteBtn} onPress={() => remove(p)}><Text>🗑</Text></TouchableOpacity>
-            </View>
-          </Card>
+          <TouchableOpacity key={p.id} activeOpacity={0.7} onPress={() => openEdit(p)}>
+            <Card style={s.prodRow} padding={12}>
+              <ProductImage name={p.name} photoUrl={p.photo_url} size={52} borderRadius={12} />
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={s.prodName}>{p.name}</Text>
+                <Text style={s.rowSub}>{p.current_price.toLocaleString('fr-FR')} F/{p.unit} · Stock: {p.stock_quantity}</Text>
+              </View>
+              <Text style={s.chevron}>›</Text>
+            </Card>
+          </TouchableOpacity>
         ))}
         <View style={{ height: 32 }} />
       </ScrollView>
@@ -194,6 +195,9 @@ function ProduitsTab({ shopId }: { shopId: string }) {
             </View>
 
             <Button title={editing ? 'Enregistrer' : 'Créer le produit'} onPress={save} loading={saving} size="lg" style={{ marginTop: 8 }} />
+            {editing && (
+              <Button title="🗑  Supprimer ce produit" variant="ghost" onPress={() => remove(editing)} style={{ marginTop: 10 }} />
+            )}
           </ScrollView>
         </SafeAreaView>
       </Modal>
@@ -516,8 +520,11 @@ const s = StyleSheet.create({
   tabTextActive: { color: Colors.boss },
   list:        { padding: 16 },
   row:         { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
+  prodRow:     { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
+  prodName:    { fontSize: 17, fontWeight: '800', color: Colors.text },
+  chevron:     { fontSize: 30, color: Colors.textTertiary, fontWeight: '300', marginLeft: 4 },
   rowName:     { fontSize: 15, fontWeight: '700', color: Colors.text },
-  rowSub:      { fontSize: 12, color: Colors.textSecondary, marginTop: 2 },
+  rowSub:      { fontSize: 13, color: Colors.textSecondary, marginTop: 2 },
   debtText:    { fontSize: 12, color: Colors.danger, marginTop: 4 },
   actions:     { flexDirection: 'row' as const, gap: 6 },
   editBtn:     { width: 36, height: 36, borderRadius: 8, backgroundColor: Colors.infoLight, alignItems: 'center', justifyContent: 'center' },

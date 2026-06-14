@@ -7,6 +7,7 @@ import { Product } from '../lib/types'
 import { createSale } from '../services/sales'
 import { fmtQty } from '../utils/helpers'
 import { Button } from './Button'
+import { PriceRequestModal } from './PriceRequestModal'
 import { ProductImage } from './ProductImage'
 import { Input } from './Input'
 
@@ -50,6 +51,7 @@ export function SaleModal({ visible, onClose, products, shopId, agentId, onSaleC
   const [clientName, setClientName] = useState('')
   const [saving, setSaving] = useState(false)
   const [receipt, setReceipt] = useState<Receipt | null>(null)
+  const [priceRequest, setPriceRequest] = useState(false)
 
   function reset() {
     setStep(1); setProduct(null); setQty(1); setPrice('')
@@ -209,6 +211,10 @@ export function SaleModal({ visible, onClose, products, shopId, agentId, onSaleC
 
             <Input label={`Prix / ${product.unit} (F)`} value={price} onChangeText={setPrice} keyboardType="numeric" />
 
+            <TouchableOpacity style={s.askBossBtn} onPress={() => setPriceRequest(true)} activeOpacity={0.7}>
+              <Text style={s.askBossText}>🙋 Demander un prix au patron</Text>
+            </TouchableOpacity>
+
             {qty && price && (
               <View style={s.totalRow}>
                 <Text style={s.totalLabel}>Total</Text>
@@ -259,7 +265,7 @@ export function SaleModal({ visible, onClose, products, shopId, agentId, onSaleC
             </View>
 
             <View style={s.receipt}>
-              <Text style={{ fontSize: 15, fontWeight: '700', color: Colors.forest, textAlign: 'center' }}>🌿 BiZ-Up Africa</Text>
+              <Text style={{ fontSize: 15, fontWeight: '700', color: Colors.forest, textAlign: 'center' }}>🌿 MamaShop</Text>
               <View style={{ height: 1, borderStyle: 'dashed', borderWidth: 1, borderColor: Colors.border, marginVertical: 10 }} />
               {([
                 ['Produit', `${receipt.productName} × ${fmtQty(receipt.qty)} ${receipt.unit}`],
@@ -281,6 +287,17 @@ export function SaleModal({ visible, onClose, products, shopId, agentId, onSaleC
         )}
 
       </SafeAreaView>
+
+      <PriceRequestModal
+        visible={priceRequest}
+        onClose={() => setPriceRequest(false)}
+        shopId={shopId}
+        agentId={agentId}
+        product={product}
+        clientName={clientName}
+        defaultPrice={price}
+        onApproved={(p) => setPrice(p.toString())}
+      />
     </Modal>
   )
 }
@@ -317,6 +334,9 @@ const s = StyleSheet.create({
   fracBtnActive:  { borderColor: Colors.forest, backgroundColor: Colors.successLight },
   fracBtnText:    { fontSize: 14, fontWeight: '700', color: Colors.textSecondary },
   fracBtnTextActive: { color: Colors.forest },
+
+  askBossBtn:  { alignSelf: 'flex-start', backgroundColor: Colors.infoLight, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, marginBottom: 14, marginTop: -4 },
+  askBossText: { fontSize: 13, fontWeight: '700', color: Colors.info },
 
   totalRow:   { backgroundColor: Colors.surfaceDark, borderRadius: 12, padding: 14, flexDirection: 'row' as const, justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   totalLabel: { fontSize: 13, fontWeight: '700', color: Colors.forest },
