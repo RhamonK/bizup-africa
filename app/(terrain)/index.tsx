@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router'
 import { useEffect, useState } from 'react'
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -18,6 +19,7 @@ import { getSalesByDate } from '../../services/sales'
 
 export default function TerrainHome() {
   const { profile } = useAuth()
+  const router = useRouter()
   useHamburgerHeader()
 
   const [sales, setSales] = useState<Sale[]>([])
@@ -69,7 +71,7 @@ export default function TerrainHome() {
       {/* Hero */}
       <View style={styles.hero}>
         <View style={styles.heroRow}>
-          <AvatarDisplay url={profile?.avatar_url ?? null} size={44} name={profile?.full_name} dark />
+          <AvatarDisplay url={profile?.avatar_url ?? null} size={44} name={profile?.full_name} />
           <View style={{ flex: 1 }}>
             <Text style={styles.heroName}>Bonjour, {profile?.full_name?.split(' ')[0] ?? '—'}</Text>
             <Text style={styles.heroSub}>{profile?.job_title ?? 'Terrain'}</Text>
@@ -127,7 +129,7 @@ export default function TerrainHome() {
 
         {/* 3 boutons secondaires */}
         <View style={styles.grid}>
-          <TouchableOpacity style={styles.actionBtn}>
+          <TouchableOpacity style={styles.actionBtn} activeOpacity={0.7} onPress={() => router.push('/(terrain)/stock')}>
             <View style={[styles.actionIcon, { backgroundColor: lowStock.length > 0 ? Colors.dangerLight : '#E8F5EE' }]}>
               <Text style={{ fontSize: 26 }}>📦</Text>
             </View>
@@ -138,7 +140,7 @@ export default function TerrainHome() {
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.actionBtn}>
+          <TouchableOpacity style={styles.actionBtn} activeOpacity={0.7} onPress={() => router.push('/(terrain)/credits')}>
             <View style={[styles.actionIcon, { backgroundColor: '#EBF5FB' }]}>
               <Text style={{ fontSize: 26 }}>💰</Text>
             </View>
@@ -149,7 +151,7 @@ export default function TerrainHome() {
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.actionBtn}>
+          <TouchableOpacity style={styles.actionBtn} activeOpacity={0.7} onPress={() => router.push('/(terrain)/historique')}>
             <View style={[styles.actionIcon, { backgroundColor: '#E8F5EE' }]}>
               <Text style={{ fontSize: 26 }}>🧾</Text>
             </View>
@@ -233,14 +235,14 @@ const styles = StyleSheet.create({
   safe:          { flex: 1, backgroundColor: Colors.heroBg },
   hero:          { backgroundColor: Colors.heroBg, padding: 20, paddingBottom: 20 },
   heroRow:       { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
-  heroName:      { fontSize: 18, fontWeight: '700', color: '#fff' },
-  heroSub:       { fontSize: 11, color: Colors.heroMuted, marginTop: 1 },
-  dateBadge:     { backgroundColor: 'rgba(46,204,138,0.15)', borderWidth: 1, borderColor: 'rgba(46,204,138,0.3)', borderRadius: 20, paddingHorizontal: 11, paddingVertical: 5 },
-  dateBadgeText: { fontSize: 10, fontWeight: '700', color: Colors.mint },
+  heroName:      { fontSize: 20, fontWeight: '800', color: Colors.heroText },
+  heroSub:       { fontSize: 12, color: Colors.heroMuted, marginTop: 1 },
+  dateBadge:     { backgroundColor: 'rgba(45,106,79,0.10)', borderWidth: 1, borderColor: 'rgba(45,106,79,0.20)', borderRadius: 20, paddingHorizontal: 11, paddingVertical: 5 },
+  dateBadgeText: { fontSize: 11, fontWeight: '700', color: Colors.forest },
   heroStats:     { flexDirection: 'row', gap: 10 },
   heroStat:      { flex: 1, backgroundColor: Colors.heroCard, borderWidth: 1, borderColor: Colors.heroBorder, borderRadius: 12, padding: 12 },
   heroStatLabel: { fontSize: 10, color: Colors.heroMuted, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
-  heroStatValue: { fontSize: 22, fontWeight: '800', color: '#fff', lineHeight: 26, marginTop: 3 },
+  heroStatValue: { fontSize: 22, fontWeight: '800', color: Colors.heroText, lineHeight: 26, marginTop: 3 },
   syncBadge:     { marginTop: 10, backgroundColor: 'rgba(232,160,32,0.15)', borderRadius: 8, padding: 8, alignItems: 'center' },
   syncText:      { fontSize: 12, color: Colors.amber, fontWeight: '600' },
   mainSellBtn:   { margin: 16, marginBottom: 8, backgroundColor: Colors.forest, borderRadius: 18, padding: 18, flexDirection: 'row', alignItems: 'center', gap: 14, shadowColor: Colors.forest, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.35, shadowRadius: 12, elevation: 6 },
