@@ -37,9 +37,7 @@ yarn-error.*
 eas.json
 google-service-account.json
 
-# outillage local / notes de travail
-
-
+# notes de travail locales
 BETA_TOGO.md
 
 # typescript
