@@ -15,7 +15,6 @@ SUPABASE_SERVICE_KEY=ta-service-role-key
 WHATSAPP_API_TOKEN=ton-token-whatsapp-business
 WHATSAPP_PHONE_ID=ton-phone-id
 PATRONNE_WHATSAPP=+228XXXXXXXXX
-
 ```
 
 ---

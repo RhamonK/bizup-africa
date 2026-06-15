@@ -12,7 +12,7 @@ Pensée pour des réseaux instables et des utilisateurs peu techniques : **offli
 - **Mode hors-ligne** : les ventes et arrivages sont enregistrés localement puis synchronisés automatiquement au retour du réseau
 - **Ventes transactionnelles** : création de vente, lignes et décrément de stock dans une seule transaction Postgres (RPC) — pas d'état incohérent
 - **Crédits clients** : suivi des dettes, fiches clients, niveaux de fidélité
-- **Aide à la négociation fournisseur** : conseil de négociation fournisseur basé sur l'historique des prix
+- **Aide à la négociation fournisseur** : conseils basés sur l'historique des prix payés
 - **Photos produits & avatars** : upload vers Supabase Storage
 
 ## Stack technique
@@ -25,7 +25,6 @@ Pensée pour des réseaux instables et des utilisateurs peu techniques : **offli
 | Backend | Supabase — Postgres, Auth, Storage, Edge Functions (Deno) |
 | Hors-ligne | AsyncStorage + file de synchronisation, détection réseau NetInfo |
 | Sessions | expo-secure-store (Keychain iOS / Keystore Android) |
-
 
 ## Architecture
 
