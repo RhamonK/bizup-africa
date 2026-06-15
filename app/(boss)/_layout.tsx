@@ -7,6 +7,7 @@ import { DrawerProvider } from '../../hooks/useDrawer'
 const BOSS_NAV = [
   { route: '/(boss)/',            label: 'Tableau de bord' },
   { route: '/(boss)/gestion',     label: 'Gestion' },
+  { route: '/(boss)/destockage',  label: 'Déstockage rapide' },
   { route: '/(boss)/fournisseurs', label: 'Fournisseurs' },
   { route: '/(boss)/historique',  label: 'Historique ventes' },
   { route: '/(boss)/marges',      label: 'Marges & Finances' },
@@ -29,6 +30,7 @@ function BossContent() {
       >
         <Stack.Screen name="index"        options={{ title: 'Tableau de bord' }} />
         <Stack.Screen name="gestion"      options={{ title: 'Gestion' }} />
+        <Stack.Screen name="destockage"   options={{ title: 'Déstockage rapide' }} />
         <Stack.Screen name="fournisseurs" options={{ title: 'Fournisseurs' }} />
         <Stack.Screen name="fournisseur-form" options={{ title: 'Nouveau fournisseur' }} />
         <Stack.Screen name="fiche-client"    options={{ title: 'Fiche client' }} />

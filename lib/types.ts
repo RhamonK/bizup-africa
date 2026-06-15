@@ -156,6 +156,25 @@ export interface PriceRequest {
   agent?: Pick<Profile, 'full_name' | 'job_title'>
 }
 
+export type DestockStatus = 'active' | 'sold_out' | 'closed'
+
+export interface DestockLot {
+  id: string
+  shop_id: string
+  created_by: string
+  product_name: string
+  unit: string
+  location_label: string | null
+  quantity: number
+  quantity_remaining: number
+  base_price: number
+  floor_price: number
+  window_hours: number
+  started_at: string
+  status: DestockStatus
+  created_at: string
+}
+
 export interface DashboardStats {
   revenue_today: number
   revenue_week: number
