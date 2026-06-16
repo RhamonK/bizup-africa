@@ -51,6 +51,9 @@ export interface Client {
   product_preferences: string[]   // produits qu'il achète régulièrement
   preferred_payment: PaymentPref
   notes: string | null
+  latitude: number | null
+  longitude: number | null
+  position_consent: boolean
   created_at: string
 }
 
@@ -172,6 +175,8 @@ export interface DestockLot {
   window_hours: number
   started_at: string
   status: DestockStatus
+  latitude: number | null
+  longitude: number | null
   created_at: string
 }
 

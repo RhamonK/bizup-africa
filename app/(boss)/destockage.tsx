@@ -12,7 +12,9 @@ import { Colors } from '../../constants/colors'
 import { useAuth } from '../../hooks/useAuth'
 import { useHamburgerHeader } from '../../hooks/useHamburgerHeader'
 import { DestockLot } from '../../lib/types'
+import { useCapturePosition } from '../../hooks/useCapturePosition'
 import { closeLot, createLot, getActiveLots, recordLotSale } from '../../services/destocking'
+import { getClientsNearPoint, NearbyClient } from '../../services/geo'
 import { currentLotPrice, nextLotPrice } from '../../utils/destocking'
 
 const EMPTY = { product_name: '', unit: 'caisse', location_label: '', quantity: '', base_price: '', floor_price: '', window_hours: '24' }
@@ -29,6 +31,11 @@ export default function DestockageScreen() {
   const [error, setError] = useState('')
   const [sellLot, setSellLot] = useState<DestockLot | null>(null)
   const [sellQty, setSellQty] = useState('')
+  const { capture, capturing } = useCapturePosition()
+  const [lotCoords, setLotCoords] = useState<{ latitude: number; longitude: number } | null>(null)
+  const [nearbyLot, setNearbyLot] = useState<DestockLot | null>(null)
+  const [nearby, setNearby] = useState<NearbyClient[] | null>(null)
+  const [loadingNearby, setLoadingNearby] = useState(false)
 
   useFocusEffect(useCallback(() => { load() }, [profile?.shop_id]))
 
@@ -63,6 +70,8 @@ export default function DestockageScreen() {
       unit: form.unit.trim() || 'caisse',
       location_label: form.location_label.trim() || null,
       quantity: qty, base_price: base, floor_price: floor, window_hours: win,
+      latitude: lotCoords?.latitude ?? null,
+      longitude: lotCoords?.longitude ?? null,
     })
     setSaving(false)
     if (err) { setError('Enregistrement impossible. Réessaie.'); return }
@@ -81,6 +90,14 @@ export default function DestockageScreen() {
     setSellLot(null); setSellQty(''); load()
   }
 
+  async function openNearby(lot: DestockLot) {
+    if (lot.latitude == null || lot.longitude == null) return
+    setNearbyLot(lot); setNearby(null); setLoadingNearby(true)
+    const { data } = await getClientsNearPoint(lot.latitude, lot.longitude)
+    setNearby((data as NearbyClient[]) ?? [])
+    setLoadingNearby(false)
+  }
+
   function askClose(lot: DestockLot) {
     Alert.alert('Clôturer', `Terminer le déstockage de ${lot.product_name} ?`, [
       { text: 'Annuler', style: 'cancel' },
@@ -94,7 +111,7 @@ export default function DestockageScreen() {
         contentContainerStyle={{ padding: 16 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false) }} />}
       >
-        <Button title="+ Nouvel arrivage" onPress={() => { setForm(EMPTY); setError(''); setModal(true) }} style={{ marginBottom: 14 }} />
+        <Button title="+ Nouvel arrivage" onPress={() => { setForm(EMPTY); setLotCoords(null); setError(''); setModal(true) }} style={{ marginBottom: 14 }} />
 
         {lots.length === 0 && (
           <Card padding={24} style={{ alignItems: 'center' }}>
@@ -138,6 +155,11 @@ export default function DestockageScreen() {
               </View>
 
               <View style={s.actions}>
+                {lot.latitude != null && (
+                  <TouchableOpacity style={[s.btn, s.btnNear]} onPress={() => openNearby(lot)} activeOpacity={0.85}>
+                    <Text style={s.btnNearText}>📢 Proches</Text>
+                  </TouchableOpacity>
+                )}
                 <TouchableOpacity style={[s.btn, s.btnSell]} onPress={() => { setSellLot(lot); setSellQty('') }} activeOpacity={0.85}>
                   <Text style={s.btnSellText}>J'ai vendu</Text>
                 </TouchableOpacity>
@@ -159,6 +181,13 @@ export default function DestockageScreen() {
             <Input label="Produit" value={form.product_name} onChangeText={t => setForm(f => ({ ...f, product_name: t }))} placeholder="ex: Tomate" />
             <Input label="Unité" value={form.unit} onChangeText={t => setForm(f => ({ ...f, unit: t }))} placeholder="caisse / sac" />
             <Input label="Lieu (optionnel)" value={form.location_label} onChangeText={t => setForm(f => ({ ...f, location_label: t }))} placeholder="ex: Agoè" />
+            <Button
+              title={lotCoords ? '📍 Position enregistrée ✓' : '📍 Utiliser ma position'}
+              variant={lotCoords ? 'secondary' : 'ghost'}
+              loading={capturing}
+              onPress={async () => { const c = await capture(); if (c) setLotCoords(c) }}
+              style={{ marginBottom: 12 }}
+            />
             <Input label="Quantité arrivée" value={form.quantity} onChangeText={t => setForm(f => ({ ...f, quantity: t }))} keyboardType="numeric" placeholder="ex: 50" />
             <Input label="Prix de base (F)" value={form.base_price} onChangeText={t => setForm(f => ({ ...f, base_price: t }))} keyboardType="numeric" placeholder="ex: 15000" />
             <Input label="Prix plancher (F)" value={form.floor_price} onChangeText={t => setForm(f => ({ ...f, floor_price: t }))} keyboardType="numeric" placeholder="ex: 11000" hint="Le prix ne descendra jamais en dessous." />
@@ -187,6 +216,34 @@ export default function DestockageScreen() {
           </View>
         </SafeAreaView>
       </Modal>
+
+      {/* Acheteuses à proximité */}
+      <Modal visible={!!nearbyLot} animationType="slide" presentationStyle="formSheet">
+        <SafeAreaView style={s.safe}>
+          <View style={s.modalHeader}>
+            <Text style={s.modalTitle}>Acheteuses à 3km</Text>
+            <TouchableOpacity onPress={() => setNearbyLot(null)}><Text style={s.close}>✕</Text></TouchableOpacity>
+          </View>
+          <ScrollView style={{ padding: 20 }}>
+            {loadingNearby && <Text style={s.sellHint}>Recherche en cours…</Text>}
+            {!loadingNearby && nearby && nearby.length === 0 && (
+              <Text style={s.sellHint}>Aucune acheteuse géolocalisée à moins de 3km. Enregistre la position de tes clientes (Gestion → Clients) pour les voir apparaître ici.</Text>
+            )}
+            {!loadingNearby && nearby && nearby.length > 0 && (
+              <Text style={s.sellHint}>{nearby.length} acheteuse(s) à moins de 3km :</Text>
+            )}
+            {nearby?.map(c => (
+              <View key={c.id} style={s.nearRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.nearName}>{c.name}</Text>
+                  {c.phone && <Text style={s.nearMeta}>📞 {c.phone}</Text>}
+                </View>
+                <Text style={s.nearDist}>{(c.distance_m / 1000).toFixed(1)} km</Text>
+              </View>
+            ))}
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   )
 }
@@ -213,6 +270,12 @@ const s = StyleSheet.create({
   btn:         { flex: 1, height: 48, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   btnSell:     { backgroundColor: Colors.forest },
   btnSellText: { fontSize: 15, fontWeight: '800', color: '#fff' },
+  btnNear:     { backgroundColor: Colors.infoLight },
+  btnNearText: { fontSize: 15, fontWeight: '800', color: Colors.info },
+  nearRow:     { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: Colors.borderLight },
+  nearName:    { fontSize: 15, fontWeight: '700', color: Colors.text },
+  nearMeta:    { fontSize: 12, color: Colors.textSecondary, marginTop: 2 },
+  nearDist:    { fontSize: 14, fontWeight: '800', color: Colors.forest },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: Colors.border },
   modalTitle:  { fontSize: 18, fontWeight: '700', color: Colors.text },
   sellHint:    { fontSize: 13, color: Colors.textSecondary, marginBottom: 14 },

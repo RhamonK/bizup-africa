@@ -9,6 +9,8 @@ export interface NewLot {
   base_price: number
   floor_price: number
   window_hours: number
+  latitude?: number | null
+  longitude?: number | null
 }
 
 export async function createLot(shopId: string, createdBy: string, lot: NewLot) {

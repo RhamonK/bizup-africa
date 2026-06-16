@@ -15,6 +15,7 @@ import { Input } from '../../components/Input'
 import { Colors } from '../../constants/colors'
 import { useAuth } from '../../hooks/useAuth'
 import { useHamburgerHeader } from '../../hooks/useHamburgerHeader'
+import { useCapturePosition } from '../../hooks/useCapturePosition'
 import { Client, PaymentPref, Product, Profile } from '../../lib/types'
 import { signUpEmployee } from '../../services/auth'
 import { createClient, deleteClient, getClients, updateClient } from '../../services/clients'
@@ -216,8 +217,9 @@ function ClientsTab({ shopId, router }: { shopId: string; router: ReturnType<typ
   const [editing, setEditing] = useState<Client | null>(null)
   const [debtClient, setDebtClient] = useState<Client | null>(null)
   const [newDebt, setNewDebt] = useState('')
-  const [form, setForm] = useState({ name: '', phone: '', level: 'standard' as Client['level'], address: '', notes: '', preferred_payment: 'cash' as PaymentPref, product_preferences: [] as string[] })
+  const [form, setForm] = useState({ name: '', phone: '', level: 'standard' as Client['level'], address: '', notes: '', preferred_payment: 'cash' as PaymentPref, product_preferences: [] as string[], latitude: null as number | null, longitude: null as number | null })
   const [saving, setSaving] = useState(false)
+  const { capture, capturing } = useCapturePosition()
 
   useFocusEffect(useCallback(() => { load() }, [shopId]))
 
@@ -229,13 +231,13 @@ function ClientsTab({ shopId, router }: { shopId: string; router: ReturnType<typ
 
   function openCreate() {
     setEditing(null)
-    setForm({ name: '', phone: '', level: 'standard', address: '', notes: '', preferred_payment: 'cash', product_preferences: [] })
+    setForm({ name: '', phone: '', level: 'standard', address: '', notes: '', preferred_payment: 'cash', product_preferences: [], latitude: null, longitude: null })
     setModal(true)
   }
 
   function openEdit(c: Client) {
     setEditing(c)
-    setForm({ name: c.name, phone: c.phone ?? '', level: c.level, address: c.address ?? '', notes: c.notes ?? '', preferred_payment: c.preferred_payment ?? 'cash', product_preferences: c.product_preferences ?? [] })
+    setForm({ name: c.name, phone: c.phone ?? '', level: c.level, address: c.address ?? '', notes: c.notes ?? '', preferred_payment: c.preferred_payment ?? 'cash', product_preferences: c.product_preferences ?? [], latitude: c.latitude ?? null, longitude: c.longitude ?? null })
     setModal(true)
   }
 
@@ -251,7 +253,7 @@ function ClientsTab({ shopId, router }: { shopId: string; router: ReturnType<typ
   async function save() {
     if (!form.name.trim()) return
     setSaving(true)
-    const payload = { name: form.name.trim(), phone: form.phone || null, level: form.level, address: form.address || null, notes: form.notes || null, preferred_payment: form.preferred_payment, product_preferences: form.product_preferences }
+    const payload = { name: form.name.trim(), phone: form.phone || null, level: form.level, address: form.address || null, notes: form.notes || null, preferred_payment: form.preferred_payment, product_preferences: form.product_preferences, latitude: form.latitude, longitude: form.longitude }
     if (editing) await updateClient(editing.id, payload)
     else         await createClient(shopId, payload)
     setSaving(false); setModal(false); load()
@@ -318,6 +320,13 @@ function ClientsTab({ shopId, router }: { shopId: string; router: ReturnType<typ
             <Input label="Nom complet" value={form.name} onChangeText={t => setForm(f => ({ ...f, name: t }))} placeholder="ex: Fatou Diallo" />
             <Input label="Téléphone / WhatsApp" value={form.phone} onChangeText={t => setForm(f => ({ ...f, phone: t }))} keyboardType="phone-pad" placeholder="+228 90000000" />
             <Input label="Adresse / Localisation" value={form.address} onChangeText={t => setForm(f => ({ ...f, address: t }))} placeholder="ex: Marché Adidogomé, Stand 12" />
+            <Button
+              title={form.latitude != null ? '📍 Position GPS enregistrée ✓' : '📍 Enregistrer sa position GPS'}
+              variant={form.latitude != null ? 'secondary' : 'ghost'}
+              loading={capturing}
+              onPress={async () => { const c = await capture(); if (c) setForm(f => ({ ...f, latitude: c.latitude, longitude: c.longitude })) }}
+              style={{ marginBottom: 16 }}
+            />
 
             <Text style={s.fieldLabel}>Niveau client</Text>
             <View style={s.chipRow}>
