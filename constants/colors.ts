@@ -50,6 +50,10 @@ export const Colors = {
 
   overlay: 'rgba(0,0,0,0.5)',
 
+  whatsapp: '#25D366',       // vert de marque WhatsApp
+
+
+
   // Hero — fond crème avec texte sombre (nouveau style)
   heroBg: '#FAF7F2',
   heroText: '#1C2B22',

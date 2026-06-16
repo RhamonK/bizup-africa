@@ -1,7 +1,7 @@
 import { useFocusEffect } from 'expo-router'
 import { useCallback, useEffect, useState } from 'react'
 import {
-  Alert, Modal, RefreshControl, ScrollView,
+  Alert, Linking, Modal, RefreshControl, ScrollView,
   StyleSheet, Text, TouchableOpacity, View,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -16,6 +16,7 @@ import { useCapturePosition } from '../../hooks/useCapturePosition'
 import { closeLot, createLot, getActiveLots, recordLotSale } from '../../services/destocking'
 import { getClientsNearPoint, NearbyClient } from '../../services/geo'
 import { currentLotPrice, nextLotPrice } from '../../utils/destocking'
+import { fmt, whatsappUrl } from '../../utils/helpers'
 
 const EMPTY = { product_name: '', unit: 'caisse', location_label: '', quantity: '', base_price: '', floor_price: '', window_hours: '24' }
 
@@ -96,6 +97,15 @@ export default function DestockageScreen() {
     const { data } = await getClientsNearPoint(lot.latitude, lot.longitude)
     setNearby((data as NearbyClient[]) ?? [])
     setLoadingNearby(false)
+  }
+
+  function messageClient(c: NearbyClient) {
+    if (!nearbyLot) return
+    const price = currentLotPrice(nearbyLot)
+    const text = `Bonjour ${c.name} 👋 Arrivage de ${nearbyLot.product_name} — prix cassé à ${fmt(price)} la ${nearbyLot.unit}. C'est dispo maintenant, passe vite !`
+    const url = whatsappUrl(c.phone, text)
+    if (!url) { Alert.alert('Numéro manquant', 'Cette cliente n\'a pas de numéro WhatsApp valide.'); return }
+    Linking.openURL(url).catch(() => Alert.alert('WhatsApp introuvable', 'Installe WhatsApp pour envoyer le message.'))
   }
 
   function askClose(lot: DestockLot) {
@@ -236,9 +246,15 @@ export default function DestockageScreen() {
               <View key={c.id} style={s.nearRow}>
                 <View style={{ flex: 1 }}>
                   <Text style={s.nearName}>{c.name}</Text>
-                  {c.phone && <Text style={s.nearMeta}>📞 {c.phone}</Text>}
+                  <Text style={s.nearMeta}>
+                    {(c.distance_m / 1000).toFixed(1)} km{c.phone ? ` · ${c.phone}` : ''}
+                  </Text>
                 </View>
-                <Text style={s.nearDist}>{(c.distance_m / 1000).toFixed(1)} km</Text>
+                {c.phone
+                  ? <TouchableOpacity style={s.waBtn} onPress={() => messageClient(c)} activeOpacity={0.85}>
+                      <Text style={s.waBtnText}>WhatsApp</Text>
+                    </TouchableOpacity>
+                  : <Text style={s.nearDist}>{(c.distance_m / 1000).toFixed(1)} km</Text>}
               </View>
             ))}
           </ScrollView>
@@ -276,6 +292,8 @@ const s = StyleSheet.create({
   nearName:    { fontSize: 15, fontWeight: '700', color: Colors.text },
   nearMeta:    { fontSize: 12, color: Colors.textSecondary, marginTop: 2 },
   nearDist:    { fontSize: 14, fontWeight: '800', color: Colors.forest },
+  waBtn:       { backgroundColor: Colors.whatsapp, borderRadius: 10, paddingHorizontal: 16, height: 38, alignItems: 'center', justifyContent: 'center' },
+  waBtnText:   { fontSize: 13, fontWeight: '800', color: '#fff' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: Colors.border },
   modalTitle:  { fontSize: 18, fontWeight: '700', color: Colors.text },
   sellHint:    { fontSize: 13, color: Colors.textSecondary, marginBottom: 14 },

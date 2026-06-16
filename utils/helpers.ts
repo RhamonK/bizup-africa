@@ -38,3 +38,11 @@ export function fmtQty(n: number): string {
 export function formatDate(date: Date): string {
   return `${DAYS[date.getDay()]}. ${date.getDate()} ${MONTHS[date.getMonth()]}`
 }
+
+/** Lien WhatsApp (wa.me) : numéro réduit aux chiffres + message encodé.
+ *  Renvoie null si le numéro est inexploitable (trop court / absent). */
+export function whatsappUrl(phone: string | null, text: string): string | null {
+  const digits = (phone ?? '').replace(/\D/g, '')
+  if (digits.length < 8) return null
+  return `https://wa.me/${digits}?text=${encodeURIComponent(text)}`
+}
