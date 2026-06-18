@@ -12,6 +12,7 @@ import { Client, PriceRequest, Product, Sale, SaleItem } from '../../lib/types'
 import { formatDate, fmtQty } from '../../utils/helpers'
 import { ProductImage } from '../../components/ProductImage'
 import { getClients } from '../../services/clients'
+import { getShopAverageMargin } from '../../services/dashboard'
 import { getPendingPriceRequests, subscribeToPendingPriceRequests } from '../../services/priceRequests'
 import { getProducts } from '../../services/products'
 import { subscribeToShopSales } from '../../services/realtime'
@@ -27,6 +28,7 @@ export default function BossDashboard() {
   const [debtTotal, setDebtTotal] = useState(0)
   const [trend, setTrend] = useState<number[]>(Array(7).fill(0))
   const [topProducts, setTopProducts] = useState<{ name: string; revenue: number; qty: number }[]>([])
+  const [margin, setMargin] = useState<number | null>(null)
   const [refreshing, setRefreshing] = useState(false)
   const [saleModal, setSaleModal] = useState(false)
   const [priceRequests, setPriceRequests] = useState<PriceRequest[]>([])
@@ -93,6 +95,8 @@ export default function BossDashboard() {
       })
     })
     setTopProducts(Object.values(prodMap).sort((a, b) => b.revenue - a.revenue).slice(0, 3))
+
+    setMargin(await getShopAverageMargin(shopId))
   }
 
   const todayRevenue = todaySales.reduce((s, v) => s + v.paid_amount, 0)
@@ -136,7 +140,7 @@ export default function BossDashboard() {
               <Text style={styles.kpiLbl}>Critique</Text>
             </View>
             <View style={styles.kpi}>
-              <Text style={[styles.kpiVal, { color: Colors.forest }]}>23%</Text>
+              <Text style={[styles.kpiVal, { color: Colors.forest }]}>{margin === null ? '—' : `${margin}%`}</Text>
               <Text style={styles.kpiLbl}>Marge</Text>
             </View>
           </View>

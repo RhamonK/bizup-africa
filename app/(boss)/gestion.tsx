@@ -158,7 +158,7 @@ function ProduitsTab({ shopId }: { shopId: string }) {
         <View style={{ height: 32 }} />
       </ScrollView>
 
-      <Modal visible={modal} animationType="slide" presentationStyle="pageSheet">
+      <Modal visible={modal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setModal(false)}>
         <SafeAreaView style={{ flex: 1, backgroundColor: Colors.background }}>
           <View style={s.modalHeader}>
             <Text style={s.modalTitle}>{editing ? 'Modifier produit' : 'Nouveau produit'}</Text>
@@ -310,7 +310,7 @@ function ClientsTab({ shopId, router }: { shopId: string; router: ReturnType<typ
       </ScrollView>
 
       {/* Modal client */}
-      <Modal visible={modal} animationType="slide" presentationStyle="pageSheet">
+      <Modal visible={modal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setModal(false)}>
         <SafeAreaView style={{ flex: 1, backgroundColor: Colors.background }}>
           <View style={s.modalHeader}>
             <Text style={s.modalTitle}>{editing ? 'Modifier client' : 'Nouveau client'}</Text>
@@ -366,7 +366,7 @@ function ClientsTab({ shopId, router }: { shopId: string; router: ReturnType<typ
       </Modal>
 
       {/* Modal override dette */}
-      <Modal visible={debtModal} animationType="slide" presentationStyle="formSheet">
+      <Modal visible={debtModal} animationType="slide" presentationStyle="formSheet" onRequestClose={() => setDebtModal(false)}>
         <SafeAreaView style={{ flex: 1, backgroundColor: Colors.background }}>
           <View style={s.modalHeader}>
             <Text style={s.modalTitle}>Override dette</Text>
@@ -472,7 +472,7 @@ function EmployeesTab({ shopId, profile }: { shopId: string; profile: Profile })
         <View style={{ height: 32 }} />
       </ScrollView>
 
-      <Modal visible={modal} animationType="slide" presentationStyle="pageSheet">
+      <Modal visible={modal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setModal(false)}>
         <SafeAreaView style={{ flex: 1, backgroundColor: Colors.background }}>
           <View style={s.modalHeader}>
             <Text style={s.modalTitle}>{editing ? 'Modifier employé' : 'Nouvel employé'}</Text>

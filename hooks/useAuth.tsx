@@ -16,6 +16,18 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue>({} as AuthContextValue)
 
+/** Traduit les messages d'erreur Supabase (anglais) en français. */
+export function frenchAuthError(message: string): string {
+  const m = message.toLowerCase()
+  if (m.includes('invalid login credentials')) return 'Email ou mot de passe incorrect.'
+  if (m.includes('email not confirmed')) return 'Email non confirmé. Vérifie ta boîte mail.'
+  if (m.includes('user already registered')) return 'Cet email est déjà utilisé.'
+  if (m.includes('rate limit') || m.includes('too many')) return 'Trop de tentatives. Réessaie dans un instant.'
+  if (m.includes('network') || m.includes('fetch')) return 'Connexion impossible. Vérifie ton réseau.'
+  if (m.includes('password')) return 'Mot de passe invalide (minimum 6 caractères).'
+  return 'Connexion impossible. Réessaie.'
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
@@ -55,7 +67,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function signIn(email: string, password: string) {
     const { error } = await supabase.auth.signInWithPassword({ email, password })
-    return { error: error?.message ?? null }
+    return { error: error ? frenchAuthError(error.message) : null }
   }
 
   async function signOut() {

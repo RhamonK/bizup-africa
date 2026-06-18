@@ -3,22 +3,10 @@ import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native
 import { Colors } from '../../constants/colors'
 import { useAuth } from '../../hooks/useAuth'
 import { useHamburgerHeader } from '../../hooks/useHamburgerHeader'
-import { Product } from '../../lib/types'
 import { getProducts, getStockEntriesByShop, StockEntryCostRow } from '../../services/products'
 import { getSaleItemsByShop, SaleItemByShopRow } from '../../services/sales'
 import { getPriceHistoryByShop, ShopPriceRow } from '../../services/suppliers'
-
-interface MargeRow {
-  id: string
-  name: string
-  unit: string
-  avg_sale_price: number
-  avg_buy_price: number
-  marge_fcfa: number
-  marge_pct: number
-  stock: number
-  sales_count: number
-}
+import { computeMargins, MargeRow } from '../../utils/helpers'
 
 function MargeBar({ pct }: { pct: number }) {
   const color = pct >= 25 ? Colors.mint : pct >= 10 ? Colors.amber : Colors.danger
@@ -38,6 +26,7 @@ export default function MargesScreen() {
   useHamburgerHeader()
   const { profile } = useAuth()
   const [rows, setRows] = useState<MargeRow[]>([])
+  const [avgMarge, setAvgMarge] = useState(0)
   const [refreshing, setRefreshing] = useState(false)
 
   useEffect(() => { load() }, [profile?.shop_id])
@@ -51,44 +40,16 @@ export default function MargesScreen() {
       getStockEntriesByShop(profile.shop_id),
     ])
 
-    const products = prodRes.data ?? []
+    const buyRows = [
+      ...(priceHistRes.data ?? []).map((ph: ShopPriceRow) => ({ product_id: ph.product_id, price: ph.price_per_unit })),
+      ...(stockEntriesRes.data ?? []).map((se: StockEntryCostRow) => ({ product_id: se.product_id, price: se.cost_per_unit })),
+    ]
+    const saleItems = (saleItemRes.data ?? []).map((si: SaleItemByShopRow) => ({ product_id: si.product_id, unit_price: si.unit_price }))
 
-    const salePrices: Record<string, number[]> = {}
-    ;(saleItemRes.data ?? []).forEach((si: SaleItemByShopRow) => {
-      if (!salePrices[si.product_id]) salePrices[si.product_id] = []
-      salePrices[si.product_id].push(si.unit_price)
-    })
-
-    const buyPrices: Record<string, number[]> = {}
-    ;(priceHistRes.data ?? []).forEach((ph: ShopPriceRow) => {
-      if (!buyPrices[ph.product_id]) buyPrices[ph.product_id] = []
-      buyPrices[ph.product_id].push(ph.price_per_unit)
-    })
-
-    ;(stockEntriesRes.data ?? []).forEach((se: StockEntryCostRow) => {
-      if (!buyPrices[se.product_id]) buyPrices[se.product_id] = []
-      buyPrices[se.product_id].push(se.cost_per_unit)
-    })
-
-    const result: MargeRow[] = products.map((p: Product) => {
-      const sales = salePrices[p.id] ?? []
-      const buys = buyPrices[p.id] ?? []
-      const avgSale = sales.length ? sales.reduce((a, b) => a + b, 0) / sales.length : p.current_price
-      const avgBuy = buys.length ? buys.reduce((a, b) => a + b, 0) / buys.length : 0
-      const margeFcfa = avgBuy > 0 ? avgSale - avgBuy : 0
-      const margePct = avgBuy > 0 ? (margeFcfa / avgBuy) * 100 : 0
-      return {
-        id: p.id, name: p.name, unit: p.unit,
-        avg_sale_price: Math.round(avgSale), avg_buy_price: Math.round(avgBuy),
-        marge_fcfa: Math.round(margeFcfa), marge_pct: Math.round(margePct),
-        stock: p.stock_quantity, sales_count: sales.length,
-      }
-    })
-
-    setRows(result.sort((a, b) => b.marge_pct - a.marge_pct))
+    const { rows: result, avgPct } = computeMargins(prodRes.data ?? [], saleItems, buyRows)
+    setRows([...result].sort((a, b) => b.marge_pct - a.marge_pct))
+    setAvgMarge(avgPct)
   }
-
-  const avgMarge = rows.length ? rows.reduce((s, r) => s + r.marge_pct, 0) / rows.length : 0
 
   return (
     <ScrollView style={styles.root} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false) }} />}>
@@ -96,9 +57,9 @@ export default function MargesScreen() {
       <View style={styles.hero}>
         <Text style={styles.heroLabel}>Marge moyenne</Text>
         <Text style={[styles.heroValue, { color: avgMarge >= 20 ? Colors.mint : avgMarge >= 10 ? Colors.amber : '#FF7675' }]}>
-          {Math.round(avgMarge)}%
+          {avgMarge}%
         </Text>
-        <Text style={styles.heroSub}>sur {rows.length} produit(s)</Text>
+        <Text style={styles.heroSub}>sur {rows.filter(r => r.avg_buy_price > 0).length} produit(s) avec prix d'achat</Text>
       </View>
 
       <View style={{ padding: 16 }}>

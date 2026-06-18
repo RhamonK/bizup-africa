@@ -181,7 +181,7 @@ export default function DestockageScreen() {
       </ScrollView>
 
       {/* Nouvel arrivage */}
-      <Modal visible={modal} animationType="slide" presentationStyle="pageSheet">
+      <Modal visible={modal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setModal(false)}>
         <SafeAreaView style={s.safe}>
           <View style={s.modalHeader}>
             <Text style={s.modalTitle}>Nouvel arrivage</Text>
@@ -209,7 +209,7 @@ export default function DestockageScreen() {
       </Modal>
 
       {/* J'ai vendu */}
-      <Modal visible={!!sellLot} animationType="slide" presentationStyle="formSheet">
+      <Modal visible={!!sellLot} animationType="slide" presentationStyle="formSheet" onRequestClose={() => setSellLot(null)}>
         <SafeAreaView style={s.safe}>
           <View style={s.modalHeader}>
             <Text style={s.modalTitle}>Vente — {sellLot?.product_name}</Text>
@@ -228,7 +228,7 @@ export default function DestockageScreen() {
       </Modal>
 
       {/* Acheteuses à proximité */}
-      <Modal visible={!!nearbyLot} animationType="slide" presentationStyle="formSheet">
+      <Modal visible={!!nearbyLot} animationType="slide" presentationStyle="formSheet" onRequestClose={() => setNearbyLot(null)}>
         <SafeAreaView style={s.safe}>
           <View style={s.modalHeader}>
             <Text style={s.modalTitle}>Acheteuses à 3km</Text>

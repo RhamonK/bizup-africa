@@ -1,4 +1,24 @@
 import { supabase } from '../lib/supabase'
+import { getProducts, getStockEntriesByShop } from './products'
+import { getSaleItemsByShop } from './sales'
+import { getPriceHistoryByShop } from './suppliers'
+import { computeMargins } from '../utils/helpers'
+
+/** Marge moyenne du commerce — même calcul que l'écran Marges (cohérence garantie). */
+export async function getShopAverageMargin(shopId: string): Promise<number> {
+  const [prodRes, saleItemRes, priceHistRes, stockEntriesRes] = await Promise.all([
+    getProducts(shopId),
+    getSaleItemsByShop(shopId),
+    getPriceHistoryByShop(shopId),
+    getStockEntriesByShop(shopId),
+  ])
+  const buyRows = [
+    ...(priceHistRes.data ?? []).map(ph => ({ product_id: ph.product_id, price: ph.price_per_unit })),
+    ...(stockEntriesRes.data ?? []).map(se => ({ product_id: se.product_id, price: se.cost_per_unit })),
+  ]
+  const saleItems = (saleItemRes.data ?? []).map(si => ({ product_id: si.product_id, unit_price: si.unit_price }))
+  return computeMargins(prodRes.data ?? [], saleItems, buyRows).avgPct
+}
 
 export interface TopProduct { name: string; revenue: number; qty: number }
 export interface LowStockProduct { name: string; qty: number; unit: string; threshold: number }

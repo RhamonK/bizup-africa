@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -10,6 +9,7 @@ import {
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { AvatarPicker } from '../../components/AvatarPicker'
+import { Banner } from '../../components/Banner'
 import { Button } from '../../components/Button'
 import { Card } from '../../components/Card'
 import { Input } from '../../components/Input'
@@ -31,6 +31,12 @@ export default function TerrainProfilScreen() {
   const [pwForm, setPwForm] = useState({ current: '', next: '', confirm: '' })
   const [pwError, setPwError] = useState('')
   const [savingPw, setSavingPw] = useState(false)
+  const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
+  function flash(type: 'success' | 'error', text: string) {
+    setMsg({ type, text })
+    setTimeout(() => setMsg(null), 3000)
+  }
 
   useEffect(() => {
     if (profile) {
@@ -49,10 +55,10 @@ export default function TerrainProfilScreen() {
     await refreshProfile()
     setSaving(false)
     if (error) {
-      Alert.alert('Erreur', 'Les modifications n\'ont pas pu être enregistrées. Réessaie.')
+      flash('error', 'Les modifications n\'ont pas pu être enregistrées. Réessaie.')
       return
     }
-    Alert.alert('Enregistré ✅')
+    flash('success', 'Profil enregistré')
   }
 
   async function changePassword() {
@@ -68,7 +74,7 @@ export default function TerrainProfilScreen() {
     setSavingPw(false)
     if (errorMessage) { setPwError(errorMessage); return }
     setPwForm({ current: '', next: '', confirm: '' })
-    Alert.alert('Mot de passe modifié ✅')
+    flash('success', 'Mot de passe modifié')
   }
 
   return (
@@ -105,6 +111,8 @@ export default function TerrainProfilScreen() {
             </View>
           </Card>
 
+          {msg && <Banner type={msg.type} message={msg.text} />}
+
           {/* Infos */}
           <Card padding={20} style={styles.section}>
             <Text style={styles.sectionTitle}>Mes informations</Text>
@@ -117,9 +125,9 @@ export default function TerrainProfilScreen() {
           {/* Mot de passe */}
           <Card padding={20} style={styles.section}>
             <Text style={styles.sectionTitle}>Changer le mot de passe</Text>
-            <Input label="Mot de passe actuel" value={pwForm.current} onChangeText={t => setPwForm(f => ({ ...f, current: t }))} secureTextEntry placeholder="Ton mot de passe actuel" />
-            <Input label="Nouveau mot de passe" value={pwForm.next} onChangeText={t => setPwForm(f => ({ ...f, next: t }))} secureTextEntry placeholder="Minimum 6 caractères" />
-            <Input label="Confirmer" value={pwForm.confirm} onChangeText={t => setPwForm(f => ({ ...f, confirm: t }))} secureTextEntry placeholder="Répète le mot de passe" />
+            <Input label="Mot de passe actuel" value={pwForm.current} onChangeText={t => setPwForm(f => ({ ...f, current: t }))} secureTextEntry placeholder="Ton mot de passe actuel" autoComplete="off" textContentType="oneTimeCode" importantForAutofill="no" />
+            <Input label="Nouveau mot de passe" value={pwForm.next} onChangeText={t => setPwForm(f => ({ ...f, next: t }))} secureTextEntry placeholder="Minimum 6 caractères" autoComplete="new-password" textContentType="newPassword" importantForAutofill="no" />
+            <Input label="Confirmer" value={pwForm.confirm} onChangeText={t => setPwForm(f => ({ ...f, confirm: t }))} secureTextEntry placeholder="Répète le mot de passe" autoComplete="new-password" textContentType="newPassword" importantForAutofill="no" />
             {pwError ? <Text style={styles.error}>{pwError}</Text> : null}
             <Button title="Changer le mot de passe" onPress={changePassword} loading={savingPw} variant="ghost" />
           </Card>
