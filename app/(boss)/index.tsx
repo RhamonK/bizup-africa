@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { AvatarDisplay } from '../../components/AvatarDisplay'
 import { BarChart } from '../../components/BarChart'
 import { PriceApprovalModal } from '../../components/PriceApprovalModal'
@@ -21,6 +22,7 @@ import { getSalesByDate, getSalesTrend, SaleAmountRow } from '../../services/sal
 export default function BossDashboard() {
   const { profile } = useAuth()
   useHamburgerHeader()
+  const insets = useSafeAreaInsets()
 
   const [todaySales, setTodaySales] = useState<Sale[]>([])
   const [alertProducts, setAlertProducts] = useState<Product[]>([])
@@ -231,8 +233,8 @@ export default function BossDashboard() {
         </View>
       </ScrollView>
 
-      {/* FAB */}
-      <TouchableOpacity style={styles.fab} onPress={() => setSaleModal(true)}>
+      {/* FAB — décalé au-dessus de la barre de navigation Android (safe-area) */}
+      <TouchableOpacity style={[styles.fab, { bottom: 20 + insets.bottom }]} onPress={() => setSaleModal(true)} activeOpacity={0.85}>
         <Text style={styles.fabText}>+ Vente</Text>
       </TouchableOpacity>
 
@@ -288,6 +290,6 @@ const styles = StyleSheet.create({
   prodAmount:    { fontSize: 15, fontWeight: '900', color: Colors.forestMid },
   creditBadge:   { backgroundColor: Colors.goldLight, paddingHorizontal: 7, paddingVertical: 2, borderRadius: 10, marginTop: 3 },
   creditBadgeText: { fontSize: 9, fontWeight: '700', color: '#7A4A00' },
-  fab:           { position: 'absolute', bottom: 20, right: 20, backgroundColor: Colors.accent, borderRadius: 28, paddingHorizontal: 22, paddingVertical: 14, shadowColor: Colors.accent, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.35, shadowRadius: 10, elevation: 8 },
+  fab:           { position: 'absolute', right: 20, backgroundColor: Colors.forest, borderRadius: 28, paddingHorizontal: 22, paddingVertical: 14, shadowColor: Colors.forest, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.35, shadowRadius: 10, elevation: 8 },
   fabText:       { color: '#fff', fontSize: 15, fontWeight: '800' },
 })
