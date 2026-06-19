@@ -91,6 +91,16 @@ export function computeMargins(
   return { rows, avgPct }
 }
 
+/** Génère un UUID v4 (clé d'idempotence). Sans dépendance : suffisant pour
+ *  identifier de façon unique un envoi de formulaire côté client. */
+export function uuidv4(): string {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = (Math.random() * 16) | 0
+    const v = c === 'x' ? r : (r & 0x3) | 0x8
+    return v.toString(16)
+  })
+}
+
 /** Lien WhatsApp (wa.me) : numéro réduit aux chiffres + message encodé.
  *  Renvoie null si le numéro est inexploitable (trop court / absent). */
 export function whatsappUrl(phone: string | null, text: string): string | null {

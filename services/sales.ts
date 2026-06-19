@@ -14,6 +14,7 @@ export async function createSale(shopId: string, createdBy: string, payload: Sal
     p_credit_amount: payload.credit_amount,
     p_date:          payload.date,
     p_pay_mode:      payload.pay_mode ?? 'cash',
+    p_client_key:    payload.client_key ?? null,
     p_items:         payload.items.map(i => ({
       product_id: i.product_id,
       quantity:   i.quantity,

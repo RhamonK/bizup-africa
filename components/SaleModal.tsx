@@ -1,11 +1,11 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Alert, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Colors } from '../constants/colors'
 import { addToQueue } from '../lib/offlineQueue'
 import { Product } from '../lib/types'
 import { createSale } from '../services/sales'
-import { fmtQty } from '../utils/helpers'
+import { fmtQty, uuidv4 } from '../utils/helpers'
 import { Button } from './Button'
 import { PriceRequestModal } from './PriceRequestModal'
 import { ProductImage } from './ProductImage'
@@ -52,10 +52,13 @@ export function SaleModal({ visible, onClose, products, shopId, agentId, onSaleC
   const [saving, setSaving] = useState(false)
   const [receipt, setReceipt] = useState<Receipt | null>(null)
   const [priceRequest, setPriceRequest] = useState(false)
+  const submitting = useRef(false)              // garde ré-entrante anti double-clic
+  const saleKey = useRef(uuidv4())              // clé d'idempotence de la vente en cours
 
   function reset() {
     setStep(1); setProduct(null); setQty(1); setPrice('')
     setPayMode('cash'); setPaidAmount(''); setClientName(''); setReceipt(null)
+    saleKey.current = uuidv4()                  // nouvelle vente = nouvelle clé
   }
 
   function selectProduct(p: Product) {
@@ -73,6 +76,9 @@ export function SaleModal({ visible, onClose, products, shopId, agentId, onSaleC
 
   async function confirm() {
     if (!product || !qty || !price) return
+    if (submitting.current) return              // déjà en cours → on ignore le double-clic
+    submitting.current = true
+
     const total = qty * parseFloat(price)
     const paid = payMode === 'credit' && paidAmount
       ? Math.min(parseFloat(paidAmount), total)
@@ -81,34 +87,40 @@ export function SaleModal({ visible, onClose, products, shopId, agentId, onSaleC
     const today = new Date().toISOString().split('T')[0]
 
     setSaving(true)
-    const { data: sale, error } = await createSale(shopId, agentId, {
-      total_amount: total, paid_amount: paid, credit_amount: credit, date: today,
-      pay_mode: payMode,
-      items: [{ product_id: product.id, quantity: qty, unit_price: parseFloat(price), total, current_stock: product.stock_quantity }],
-      client_name: clientName || undefined,
-    })
-    setSaving(false)
+    try {
+      const { data: sale, error } = await createSale(shopId, agentId, {
+        total_amount: total, paid_amount: paid, credit_amount: credit, date: today,
+        pay_mode: payMode,
+        items: [{ product_id: product.id, quantity: qty, unit_price: parseFloat(price), total, current_stock: product.stock_quantity }],
+        client_name: clientName || undefined,
+        client_key: saleKey.current,
+      })
 
-    if (error) {
-      if (offline) {
-        await addToQueue({
-          shop_id: shopId, created_by: agentId,
-          total_amount: total, paid_amount: paid, credit_amount: credit, date: today,
-          product_id: product.id, product_name: product.name, product_unit: product.unit,
-          qty, unit_price: parseFloat(price),
-          pay_mode: payMode, client_name: clientName || null,
-        })
-        onOfflineQueued?.()
-        Alert.alert('⏳ Sauvegardé hors ligne', 'La vente sera synchronisée au retour du réseau.')
-        onClose()
+      if (error) {
+        if (offline) {
+          await addToQueue({
+            shop_id: shopId, created_by: agentId,
+            total_amount: total, paid_amount: paid, credit_amount: credit, date: today,
+            product_id: product.id, product_name: product.name, product_unit: product.unit,
+            qty, unit_price: parseFloat(price),
+            pay_mode: payMode, client_name: clientName || null,
+            client_key: saleKey.current,
+          })
+          onOfflineQueued?.()
+          Alert.alert('⏳ Sauvegardé hors ligne', 'La vente sera synchronisée au retour du réseau.')
+          onClose()
+        }
+        return
       }
-      return
-    }
 
-    if (sale) {
-      setReceipt({ productName: product.name, unit: product.unit, qty, total, paid, credit, payMode, clientName })
-      setStep(3)
-      onSaleCreated()
+      if (sale) {
+        setReceipt({ productName: product.name, unit: product.unit, qty, total, paid, credit, payMode, clientName })
+        setStep(3)
+        onSaleCreated()
+      }
+    } finally {
+      setSaving(false)
+      submitting.current = false
     }
   }
 
@@ -208,6 +220,14 @@ export function SaleModal({ visible, onClose, products, shopId, agentId, onSaleC
                 </TouchableOpacity>
               ))}
             </View>
+
+            {qty > product.stock_quantity && (
+              <View style={s.warnRow}>
+                <Text style={s.warnText}>
+                  ⚠️ Quantité ({fmtQty(qty)}) supérieure au stock ({fmtQty(product.stock_quantity)} {product.unit}). La vente reste possible, mais le stock est insuffisant.
+                </Text>
+              </View>
+            )}
 
             <Input label={`Prix / ${product.unit} (F)`} value={price} onChangeText={setPrice} keyboardType="numeric" />
 
@@ -337,6 +357,8 @@ const s = StyleSheet.create({
 
   askBossBtn:  { alignSelf: 'flex-start', backgroundColor: Colors.infoLight, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, marginBottom: 14, marginTop: -4 },
   askBossText: { fontSize: 13, fontWeight: '700', color: Colors.info },
+  warnRow:     { backgroundColor: Colors.warningLight, borderRadius: 10, padding: 12, marginBottom: 14 },
+  warnText:    { fontSize: 12, fontWeight: '600', color: '#7A4A00' },
 
   totalRow:   { backgroundColor: Colors.surfaceDark, borderRadius: 12, padding: 14, flexDirection: 'row' as const, justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   totalLabel: { fontSize: 13, fontWeight: '700', color: Colors.forest },

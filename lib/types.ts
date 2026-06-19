@@ -205,4 +205,5 @@ export interface SalePayload {
   pay_mode?: 'cash' | 'credit' | 'mobile_money'
   items: SaleItemPayload[]
   client_name?: string
+  client_key?: string   // clé d'idempotence (anti-doublon), générée à l'ouverture du formulaire
 }

@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { useFocusEffect, useRouter } from 'expo-router'
 import { AvatarDisplay } from '../../components/AvatarDisplay'
 import { AvatarPicker } from '../../components/AvatarPicker'
+import { Banner } from '../../components/Banner'
 import { Button } from '../../components/Button'
 import { ProductImage } from '../../components/ProductImage'
 import { ProductImagePicker } from '../../components/ProductImagePicker'
@@ -49,6 +50,12 @@ export default function GestionScreen() {
   const { profile, loading } = useAuth()
   const router = useRouter()
   const [tab, setTab] = useState<Tab>('produits')
+  const [msg, setMsg] = useState<string | null>(null)
+
+  function flash(text: string) {
+    setMsg(text)
+    setTimeout(() => setMsg(null), 3000)
+  }
 
   if (loading) return (
     <SafeAreaView style={s.safe}>
@@ -74,9 +81,10 @@ export default function GestionScreen() {
           </TouchableOpacity>
         ))}
       </View>
-      {tab === 'produits' && <ProduitsTab shopId={profile.shop_id} />}
-      {tab === 'clients'  && <ClientsTab  shopId={profile.shop_id} router={router} />}
-      {tab === 'employes' && <EmployeesTab shopId={profile.shop_id} profile={profile} />}
+      {msg && <Banner type="success" message={msg} />}
+      {tab === 'produits' && <ProduitsTab shopId={profile.shop_id} onSaved={flash} />}
+      {tab === 'clients'  && <ClientsTab  shopId={profile.shop_id} router={router} onSaved={flash} />}
+      {tab === 'employes' && <EmployeesTab shopId={profile.shop_id} profile={profile} onSaved={flash} />}
     </SafeAreaView>
   )
 }
@@ -84,7 +92,7 @@ export default function GestionScreen() {
 // ─────────────────────────────────────────────────────────────────────────────
 // Onglet Produits
 // ─────────────────────────────────────────────────────────────────────────────
-function ProduitsTab({ shopId }: { shopId: string }) {
+function ProduitsTab({ shopId, onSaved }: { shopId: string; onSaved: (msg: string) => void }) {
   const [products, setProducts] = useState<Product[]>([])
   const [modal, setModal] = useState(false)
   const [editing, setEditing] = useState<Product | null>(null)
@@ -115,6 +123,7 @@ function ProduitsTab({ shopId }: { shopId: string }) {
 
   async function save() {
     if (!form.name.trim() || !form.current_price) return
+    const wasEditing = !!editing
     setSaving(true)
     const payload: Partial<Product> = {
       name: form.name.trim(), unit: form.unit,
@@ -130,6 +139,7 @@ function ProduitsTab({ shopId }: { shopId: string }) {
       await createProduct(shopId, { ...payload, stock_quantity: parseFloat(stockAdd) || 0, alert_days_without_sale: 2 })
     }
     setSaving(false); setModal(false); setStockAdd(''); load()
+    onSaved(wasEditing ? 'Produit modifié' : 'Produit créé')
   }
 
   async function remove(p: Product) {
@@ -209,7 +219,7 @@ function ProduitsTab({ shopId }: { shopId: string }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Onglet Clients
 // ─────────────────────────────────────────────────────────────────────────────
-function ClientsTab({ shopId, router }: { shopId: string; router: ReturnType<typeof useRouter> }) {
+function ClientsTab({ shopId, router, onSaved }: { shopId: string; router: ReturnType<typeof useRouter>; onSaved: (msg: string) => void }) {
   const [clients, setClients] = useState<Client[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [modal, setModal] = useState(false)
@@ -254,9 +264,11 @@ function ClientsTab({ shopId, router }: { shopId: string; router: ReturnType<typ
     if (!form.name.trim()) return
     setSaving(true)
     const payload = { name: form.name.trim(), phone: form.phone || null, level: form.level, address: form.address || null, notes: form.notes || null, preferred_payment: form.preferred_payment, product_preferences: form.product_preferences, latitude: form.latitude, longitude: form.longitude }
+    const wasEditing = !!editing
     if (editing) await updateClient(editing.id, payload)
     else         await createClient(shopId, payload)
     setSaving(false); setModal(false); load()
+    onSaved(wasEditing ? 'Client modifié' : 'Client créé')
   }
 
   async function remove(c: Client) {
@@ -389,7 +401,7 @@ function ClientsTab({ shopId, router }: { shopId: string; router: ReturnType<typ
 // ─────────────────────────────────────────────────────────────────────────────
 // Onglet Employés
 // ─────────────────────────────────────────────────────────────────────────────
-function EmployeesTab({ shopId, profile }: { shopId: string; profile: Profile }) {
+function EmployeesTab({ shopId, profile, onSaved }: { shopId: string; profile: Profile; onSaved: (msg: string) => void }) {
   const [employees, setEmployees] = useState<Profile[]>([])
   const [modal, setModal] = useState(false)
   const [editing, setEditing] = useState<Profile | null>(null)
@@ -421,6 +433,7 @@ function EmployeesTab({ shopId, profile }: { shopId: string; profile: Profile })
   async function save() {
     setError('')
     if (!form.full_name.trim()) { setError('Le nom est obligatoire.'); return }
+    const wasEditing = !!editing
     setSaving(true)
     try {
       if (editing) {
@@ -434,6 +447,7 @@ function EmployeesTab({ shopId, profile }: { shopId: string; profile: Profile })
         Alert.alert('Compte créé ✅', `Identifiants à donner :\nEmail : ${form.email}\nMot de passe : ${form.password}`)
       }
       setModal(false); load()
+      onSaved(wasEditing ? 'Employé modifié' : 'Employé créé')
     } finally { setSaving(false) }
   }
 
