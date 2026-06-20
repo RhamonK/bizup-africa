@@ -19,7 +19,8 @@
       "infoPlist": {
         "NSCameraUsageDescription": "MamaShop utilise la caméra pour photographier vos produits.",
         "NSPhotoLibraryUsageDescription": "MamaShop accède à votre galerie pour choisir une photo de produit.",
-        "NSPhotoLibraryAddUsageDescription": "MamaShop peut enregistrer des photos dans votre galerie."
+        "NSPhotoLibraryAddUsageDescription": "MamaShop peut enregistrer des photos dans votre galerie.",
+        "NSLocationWhenInUseUsageDescription": "MamaShop utilise votre position pour enregistrer le lieu des arrivages et des clientes."
       }
     },
     "android": {
@@ -36,7 +37,9 @@
         "android.permission.WRITE_EXTERNAL_STORAGE",
         "android.permission.READ_MEDIA_IMAGES",
         "android.permission.INTERNET",
-        "android.permission.ACCESS_NETWORK_STATE"
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION"
       ]
     },
     "web": {
@@ -54,6 +57,12 @@
         {
           "photosPermission": "MamaShop accède à votre galerie pour les photos de produits.",
           "cameraPermission": "MamaShop utilise la caméra pour photographier vos produits."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "MamaShop utilise votre position pour enregistrer le lieu des arrivages et des clientes."
         }
       ]
     ],

@@ -38,3 +38,73 @@ export function fmtQty(n: number): string {
 export function formatDate(date: Date): string {
   return `${DAYS[date.getDay()]}. ${date.getDate()} ${MONTHS[date.getMonth()]}`
 }
+
+export interface MargeRow {
+  id: string
+  name: string
+  unit: string
+  avg_sale_price: number
+  avg_buy_price: number
+  marge_fcfa: number
+  marge_pct: number
+  stock: number
+  sales_count: number
+}
+
+/** Calcule les marges par produit + la marge moyenne du commerce.
+ *  La moyenne ne compte QUE les produits dont on connaît le prix d'achat
+ *  (sinon des produits à 0% fausseraient le chiffre). Utilisé par l'écran
+ *  Marges ET le KPI du tableau de bord, pour qu'ils soient toujours cohérents. */
+export function computeMargins(
+  products: { id: string; name: string; unit: string; current_price: number; stock_quantity: number }[],
+  saleItems: { product_id: string; unit_price: number }[],
+  buyRows: { product_id: string; price: number }[],
+): { rows: MargeRow[]; avgPct: number } {
+  const salePrices: Record<string, number[]> = {}
+  saleItems.forEach(si => {
+    if (!salePrices[si.product_id]) salePrices[si.product_id] = []
+    salePrices[si.product_id].push(si.unit_price)
+  })
+  const buyPrices: Record<string, number[]> = {}
+  buyRows.forEach(b => {
+    if (!buyPrices[b.product_id]) buyPrices[b.product_id] = []
+    buyPrices[b.product_id].push(b.price)
+  })
+
+  const rows: MargeRow[] = products.map(p => {
+    const sales = salePrices[p.id] ?? []
+    const buys = buyPrices[p.id] ?? []
+    const avgSale = sales.length ? sales.reduce((a, b) => a + b, 0) / sales.length : p.current_price
+    const avgBuy = buys.length ? buys.reduce((a, b) => a + b, 0) / buys.length : 0
+    const margeFcfa = avgBuy > 0 ? avgSale - avgBuy : 0
+    const margePct = avgBuy > 0 ? (margeFcfa / avgBuy) * 100 : 0
+    return {
+      id: p.id, name: p.name, unit: p.unit,
+      avg_sale_price: Math.round(avgSale), avg_buy_price: Math.round(avgBuy),
+      marge_fcfa: Math.round(margeFcfa), marge_pct: Math.round(margePct),
+      stock: p.stock_quantity, sales_count: sales.length,
+    }
+  })
+
+  const withBuy = rows.filter(r => r.avg_buy_price > 0)
+  const avgPct = withBuy.length ? Math.round(withBuy.reduce((s, r) => s + r.marge_pct, 0) / withBuy.length) : 0
+  return { rows, avgPct }
+}
+
+/** Génère un UUID v4 (clé d'idempotence). Sans dépendance : suffisant pour
+ *  identifier de façon unique un envoi de formulaire côté client. */
+export function uuidv4(): string {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = (Math.random() * 16) | 0
+    const v = c === 'x' ? r : (r & 0x3) | 0x8
+    return v.toString(16)
+  })
+}
+
+/** Lien WhatsApp (wa.me) : numéro réduit aux chiffres + message encodé.
+ *  Renvoie null si le numéro est inexploitable (trop court / absent). */
+export function whatsappUrl(phone: string | null, text: string): string | null {
+  const digits = (phone ?? '').replace(/\D/g, '')
+  if (digits.length < 8) return null
+  return `https://wa.me/${digits}?text=${encodeURIComponent(text)}`
+}

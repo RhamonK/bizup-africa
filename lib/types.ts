@@ -51,6 +51,9 @@ export interface Client {
   product_preferences: string[]   // produits qu'il achète régulièrement
   preferred_payment: PaymentPref
   notes: string | null
+  latitude: number | null
+  longitude: number | null
+  position_consent: boolean
   created_at: string
 }
 
@@ -156,6 +159,27 @@ export interface PriceRequest {
   agent?: Pick<Profile, 'full_name' | 'job_title'>
 }
 
+export type DestockStatus = 'active' | 'sold_out' | 'closed'
+
+export interface DestockLot {
+  id: string
+  shop_id: string
+  created_by: string
+  product_name: string
+  unit: string
+  location_label: string | null
+  quantity: number
+  quantity_remaining: number
+  base_price: number
+  floor_price: number
+  window_hours: number
+  started_at: string
+  status: DestockStatus
+  latitude: number | null
+  longitude: number | null
+  created_at: string
+}
+
 export interface DashboardStats {
   revenue_today: number
   revenue_week: number
@@ -181,4 +205,5 @@ export interface SalePayload {
   pay_mode?: 'cash' | 'credit' | 'mobile_money'
   items: SaleItemPayload[]
   client_name?: string
+  client_key?: string   // clé d'idempotence (anti-doublon), générée à l'ouverture du formulaire
 }

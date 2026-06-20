@@ -18,6 +18,7 @@ export interface QueuedSale {
   unit_price: number
   pay_mode: string
   client_name: string | null
+  client_key?: string   // clé d'idempotence — évite un doublon au rejeu
   queued_at: string
 }
 
@@ -49,6 +50,7 @@ export async function flushQueue(shopId: string): Promise<number> {
         date: item.date,
         pay_mode: item.pay_mode as 'cash' | 'credit' | 'mobile_money',
         client_name: item.client_name ?? undefined,
+        client_key: item.client_key,
         items: [{
           product_id: item.product_id,
           quantity: item.qty,

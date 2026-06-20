@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { useFocusEffect, useRouter } from 'expo-router'
 import { AvatarDisplay } from '../../components/AvatarDisplay'
 import { AvatarPicker } from '../../components/AvatarPicker'
+import { Banner } from '../../components/Banner'
 import { Button } from '../../components/Button'
 import { ProductImage } from '../../components/ProductImage'
 import { ProductImagePicker } from '../../components/ProductImagePicker'
@@ -15,6 +16,7 @@ import { Input } from '../../components/Input'
 import { Colors } from '../../constants/colors'
 import { useAuth } from '../../hooks/useAuth'
 import { useHamburgerHeader } from '../../hooks/useHamburgerHeader'
+import { useCapturePosition } from '../../hooks/useCapturePosition'
 import { Client, PaymentPref, Product, Profile } from '../../lib/types'
 import { signUpEmployee } from '../../services/auth'
 import { createClient, deleteClient, getClients, updateClient } from '../../services/clients'
@@ -48,6 +50,12 @@ export default function GestionScreen() {
   const { profile, loading } = useAuth()
   const router = useRouter()
   const [tab, setTab] = useState<Tab>('produits')
+  const [msg, setMsg] = useState<string | null>(null)
+
+  function flash(text: string) {
+    setMsg(text)
+    setTimeout(() => setMsg(null), 3000)
+  }
 
   if (loading) return (
     <SafeAreaView style={s.safe}>
@@ -73,9 +81,10 @@ export default function GestionScreen() {
           </TouchableOpacity>
         ))}
       </View>
-      {tab === 'produits' && <ProduitsTab shopId={profile.shop_id} />}
-      {tab === 'clients'  && <ClientsTab  shopId={profile.shop_id} router={router} />}
-      {tab === 'employes' && <EmployeesTab shopId={profile.shop_id} profile={profile} />}
+      {msg && <Banner type="success" message={msg} />}
+      {tab === 'produits' && <ProduitsTab shopId={profile.shop_id} onSaved={flash} />}
+      {tab === 'clients'  && <ClientsTab  shopId={profile.shop_id} router={router} onSaved={flash} />}
+      {tab === 'employes' && <EmployeesTab shopId={profile.shop_id} profile={profile} onSaved={flash} />}
     </SafeAreaView>
   )
 }
@@ -83,7 +92,7 @@ export default function GestionScreen() {
 // ─────────────────────────────────────────────────────────────────────────────
 // Onglet Produits
 // ─────────────────────────────────────────────────────────────────────────────
-function ProduitsTab({ shopId }: { shopId: string }) {
+function ProduitsTab({ shopId, onSaved }: { shopId: string; onSaved: (msg: string) => void }) {
   const [products, setProducts] = useState<Product[]>([])
   const [modal, setModal] = useState(false)
   const [editing, setEditing] = useState<Product | null>(null)
@@ -114,6 +123,7 @@ function ProduitsTab({ shopId }: { shopId: string }) {
 
   async function save() {
     if (!form.name.trim() || !form.current_price) return
+    const wasEditing = !!editing
     setSaving(true)
     const payload: Partial<Product> = {
       name: form.name.trim(), unit: form.unit,
@@ -129,6 +139,7 @@ function ProduitsTab({ shopId }: { shopId: string }) {
       await createProduct(shopId, { ...payload, stock_quantity: parseFloat(stockAdd) || 0, alert_days_without_sale: 2 })
     }
     setSaving(false); setModal(false); setStockAdd(''); load()
+    onSaved(wasEditing ? 'Produit modifié' : 'Produit créé')
   }
 
   async function remove(p: Product) {
@@ -157,7 +168,7 @@ function ProduitsTab({ shopId }: { shopId: string }) {
         <View style={{ height: 32 }} />
       </ScrollView>
 
-      <Modal visible={modal} animationType="slide" presentationStyle="pageSheet">
+      <Modal visible={modal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setModal(false)}>
         <SafeAreaView style={{ flex: 1, backgroundColor: Colors.background }}>
           <View style={s.modalHeader}>
             <Text style={s.modalTitle}>{editing ? 'Modifier produit' : 'Nouveau produit'}</Text>
@@ -208,7 +219,7 @@ function ProduitsTab({ shopId }: { shopId: string }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Onglet Clients
 // ─────────────────────────────────────────────────────────────────────────────
-function ClientsTab({ shopId, router }: { shopId: string; router: ReturnType<typeof useRouter> }) {
+function ClientsTab({ shopId, router, onSaved }: { shopId: string; router: ReturnType<typeof useRouter>; onSaved: (msg: string) => void }) {
   const [clients, setClients] = useState<Client[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [modal, setModal] = useState(false)
@@ -216,8 +227,9 @@ function ClientsTab({ shopId, router }: { shopId: string; router: ReturnType<typ
   const [editing, setEditing] = useState<Client | null>(null)
   const [debtClient, setDebtClient] = useState<Client | null>(null)
   const [newDebt, setNewDebt] = useState('')
-  const [form, setForm] = useState({ name: '', phone: '', level: 'standard' as Client['level'], address: '', notes: '', preferred_payment: 'cash' as PaymentPref, product_preferences: [] as string[] })
+  const [form, setForm] = useState({ name: '', phone: '', level: 'standard' as Client['level'], address: '', notes: '', preferred_payment: 'cash' as PaymentPref, product_preferences: [] as string[], latitude: null as number | null, longitude: null as number | null })
   const [saving, setSaving] = useState(false)
+  const { capture, capturing } = useCapturePosition()
 
   useFocusEffect(useCallback(() => { load() }, [shopId]))
 
@@ -229,13 +241,13 @@ function ClientsTab({ shopId, router }: { shopId: string; router: ReturnType<typ
 
   function openCreate() {
     setEditing(null)
-    setForm({ name: '', phone: '', level: 'standard', address: '', notes: '', preferred_payment: 'cash', product_preferences: [] })
+    setForm({ name: '', phone: '', level: 'standard', address: '', notes: '', preferred_payment: 'cash', product_preferences: [], latitude: null, longitude: null })
     setModal(true)
   }
 
   function openEdit(c: Client) {
     setEditing(c)
-    setForm({ name: c.name, phone: c.phone ?? '', level: c.level, address: c.address ?? '', notes: c.notes ?? '', preferred_payment: c.preferred_payment ?? 'cash', product_preferences: c.product_preferences ?? [] })
+    setForm({ name: c.name, phone: c.phone ?? '', level: c.level, address: c.address ?? '', notes: c.notes ?? '', preferred_payment: c.preferred_payment ?? 'cash', product_preferences: c.product_preferences ?? [], latitude: c.latitude ?? null, longitude: c.longitude ?? null })
     setModal(true)
   }
 
@@ -251,10 +263,12 @@ function ClientsTab({ shopId, router }: { shopId: string; router: ReturnType<typ
   async function save() {
     if (!form.name.trim()) return
     setSaving(true)
-    const payload = { name: form.name.trim(), phone: form.phone || null, level: form.level, address: form.address || null, notes: form.notes || null, preferred_payment: form.preferred_payment, product_preferences: form.product_preferences }
+    const payload = { name: form.name.trim(), phone: form.phone || null, level: form.level, address: form.address || null, notes: form.notes || null, preferred_payment: form.preferred_payment, product_preferences: form.product_preferences, latitude: form.latitude, longitude: form.longitude }
+    const wasEditing = !!editing
     if (editing) await updateClient(editing.id, payload)
     else         await createClient(shopId, payload)
     setSaving(false); setModal(false); load()
+    onSaved(wasEditing ? 'Client modifié' : 'Client créé')
   }
 
   async function remove(c: Client) {
@@ -308,7 +322,7 @@ function ClientsTab({ shopId, router }: { shopId: string; router: ReturnType<typ
       </ScrollView>
 
       {/* Modal client */}
-      <Modal visible={modal} animationType="slide" presentationStyle="pageSheet">
+      <Modal visible={modal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setModal(false)}>
         <SafeAreaView style={{ flex: 1, backgroundColor: Colors.background }}>
           <View style={s.modalHeader}>
             <Text style={s.modalTitle}>{editing ? 'Modifier client' : 'Nouveau client'}</Text>
@@ -318,6 +332,13 @@ function ClientsTab({ shopId, router }: { shopId: string; router: ReturnType<typ
             <Input label="Nom complet" value={form.name} onChangeText={t => setForm(f => ({ ...f, name: t }))} placeholder="ex: Fatou Diallo" />
             <Input label="Téléphone / WhatsApp" value={form.phone} onChangeText={t => setForm(f => ({ ...f, phone: t }))} keyboardType="phone-pad" placeholder="+228 90000000" />
             <Input label="Adresse / Localisation" value={form.address} onChangeText={t => setForm(f => ({ ...f, address: t }))} placeholder="ex: Marché Adidogomé, Stand 12" />
+            <Button
+              title={form.latitude != null ? '📍 Position GPS enregistrée ✓' : '📍 Enregistrer sa position GPS'}
+              variant={form.latitude != null ? 'secondary' : 'ghost'}
+              loading={capturing}
+              onPress={async () => { const c = await capture(); if (c) setForm(f => ({ ...f, latitude: c.latitude, longitude: c.longitude })) }}
+              style={{ marginBottom: 16 }}
+            />
 
             <Text style={s.fieldLabel}>Niveau client</Text>
             <View style={s.chipRow}>
@@ -357,7 +378,7 @@ function ClientsTab({ shopId, router }: { shopId: string; router: ReturnType<typ
       </Modal>
 
       {/* Modal override dette */}
-      <Modal visible={debtModal} animationType="slide" presentationStyle="formSheet">
+      <Modal visible={debtModal} animationType="slide" presentationStyle="formSheet" onRequestClose={() => setDebtModal(false)}>
         <SafeAreaView style={{ flex: 1, backgroundColor: Colors.background }}>
           <View style={s.modalHeader}>
             <Text style={s.modalTitle}>Override dette</Text>
@@ -380,7 +401,7 @@ function ClientsTab({ shopId, router }: { shopId: string; router: ReturnType<typ
 // ─────────────────────────────────────────────────────────────────────────────
 // Onglet Employés
 // ─────────────────────────────────────────────────────────────────────────────
-function EmployeesTab({ shopId, profile }: { shopId: string; profile: Profile }) {
+function EmployeesTab({ shopId, profile, onSaved }: { shopId: string; profile: Profile; onSaved: (msg: string) => void }) {
   const [employees, setEmployees] = useState<Profile[]>([])
   const [modal, setModal] = useState(false)
   const [editing, setEditing] = useState<Profile | null>(null)
@@ -412,6 +433,7 @@ function EmployeesTab({ shopId, profile }: { shopId: string; profile: Profile })
   async function save() {
     setError('')
     if (!form.full_name.trim()) { setError('Le nom est obligatoire.'); return }
+    const wasEditing = !!editing
     setSaving(true)
     try {
       if (editing) {
@@ -425,6 +447,7 @@ function EmployeesTab({ shopId, profile }: { shopId: string; profile: Profile })
         Alert.alert('Compte créé ✅', `Identifiants à donner :\nEmail : ${form.email}\nMot de passe : ${form.password}`)
       }
       setModal(false); load()
+      onSaved(wasEditing ? 'Employé modifié' : 'Employé créé')
     } finally { setSaving(false) }
   }
 
@@ -463,7 +486,7 @@ function EmployeesTab({ shopId, profile }: { shopId: string; profile: Profile })
         <View style={{ height: 32 }} />
       </ScrollView>
 
-      <Modal visible={modal} animationType="slide" presentationStyle="pageSheet">
+      <Modal visible={modal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setModal(false)}>
         <SafeAreaView style={{ flex: 1, backgroundColor: Colors.background }}>
           <View style={s.modalHeader}>
             <Text style={s.modalTitle}>{editing ? 'Modifier employé' : 'Nouvel employé'}</Text>
