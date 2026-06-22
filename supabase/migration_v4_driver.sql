@@ -1,4 +1,4 @@
--- BiZ-Up Africa — Migration v4 : chauffeur sur les livraisons
+-- MamaShop — Migration v4 : chauffeur sur les livraisons
 -- Exécuter dans Supabase SQL Editor
 
 ALTER TABLE stock_entries ADD COLUMN IF NOT EXISTS driver_name  TEXT;
