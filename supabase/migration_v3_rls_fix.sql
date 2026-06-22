@@ -1,4 +1,4 @@
--- BiZ-Up Africa — Fix RLS INSERT + ajout table alertes
+-- MamaShop — Fix RLS INSERT + ajout table alertes
 -- Exécuter dans Supabase SQL Editor
 
 -- ── 1. FIX RLS : ajouter WITH CHECK pour les INSERT ──────────────────────────

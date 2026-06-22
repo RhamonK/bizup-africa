@@ -1,5 +1,5 @@
 -- =============================================================
--- BiZ-Up Africa — Création des comptes bêta-testeurs (Togo)
+-- MamaShop — Création des comptes bêta-testeurs (Togo)
 -- À exécuter dans Supabase > SQL Editor
 -- Remplace les valeurs entre < > avant d'exécuter
 -- =============================================================

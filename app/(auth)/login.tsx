@@ -105,7 +105,7 @@ export default function LoginScreen() {
           {/* Info */}
           <View style={styles.footer}>
             <Text style={styles.footerText}>Lomé · Cotonou · Accra · Abidjan</Text>
-            <Text style={styles.footerSub}>v3.0 · BiZ-Up Africa</Text>
+            <Text style={styles.footerSub}>v3.0 · MamaShop</Text>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>

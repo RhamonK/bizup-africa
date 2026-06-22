@@ -16,12 +16,8 @@ export function AppName({ size = 'md', dark = true }: Props) {
   return (
     <View style={styles.row}>
       <Text style={[styles.text, { fontSize: fs, color: mainColor }]}>
-        BiZ-
-        <Text style={{ color: accentColor }}>Up</Text>
-        {' '}
-        <Text style={[styles.africa, { fontSize: fs * 0.75, color: dark ? 'rgba(255,255,255,0.6)' : Colors.sage }]}>
-          Africa
-        </Text>
+        Mama
+        <Text style={{ color: accentColor }}>Shop</Text>
       </Text>
     </View>
   )
@@ -30,5 +26,4 @@ export function AppName({ size = 'md', dark = true }: Props) {
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'baseline' },
   text: { fontWeight: '900', letterSpacing: -0.5 },
-  africa: { fontWeight: '700', letterSpacing: 0 },
 })

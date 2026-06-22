@@ -1,8 +1,8 @@
-# BiZ-Up Africa — Configuration n8n
+# MamaShop — Configuration n8n
 
 ## Vue d'ensemble
 
-n8n gère toutes les automatisations WhatsApp, alertes et rapports de BiZ-Up Africa.
+n8n gère toutes les automatisations WhatsApp, alertes et rapports de MamaShop.
 Chaque workflow est déclenché soit par un webhook Supabase, soit par un cron.
 
 ---
@@ -55,7 +55,7 @@ Encaissé : 17 500 F
 Crédit : 0 F
 Heure : 09:41
 
-_Envoyé par BiZ-Up Africa_
+_Envoyé par MamaShop_
 ```
 
 **Nodes n8n :**
@@ -78,7 +78,7 @@ _Envoyé par BiZ-Up Africa_
 
 **Message WhatsApp :**
 ```
-📊 *Rapport du jour — BiZ-Up Africa*
+📊 *Rapport du jour — MamaShop*
 Date : Mercredi 13 mai 2026
 
 💰 Ventes : 12 transactions
@@ -90,7 +90,7 @@ Date : Mercredi 13 mai 2026
 
 Top produit : 🍅 Tomates (63 000 F)
 
-_Rapport automatique BiZ-Up Africa_
+_Rapport automatique MamaShop_
 ```
 
 ---
@@ -112,7 +112,7 @@ Seuil alerte : 3 caisses
 
 👉 Commander maintenant auprès de tes fournisseurs.
 
-_BiZ-Up Africa — Alerte automatique_
+_MamaShop — Alerte automatique_
 ```
 
 ---
@@ -135,7 +135,7 @@ Date de la vente : 6 mai 2026
 
 📞 Contact : +228 90 12 34 56
 
-_BiZ-Up Africa — Rappel automatique_
+_MamaShop — Rappel automatique_
 ```
 
 ---
@@ -150,7 +150,7 @@ _BiZ-Up Africa — Rappel automatique_
 
 **Message WhatsApp :**
 ```
-📅 *Alerte saisonnière BiZ-Up Africa*
+📅 *Alerte saisonnière MamaShop*
 La saison sèche approche dans 3 semaines.
 
 📈 Les prix tomates vont monter.
@@ -160,7 +160,7 @@ Tes fournisseurs saison sèche :
 • Amadou K. — 2 900 F/caisse ⭐⭐⭐⭐⭐
 • Yusuf A. — 3 100 F/caisse ⭐⭐⭐
 
-_BiZ-Up Africa — Intelligence saisonnière_
+_MamaShop — Intelligence saisonnière_
 ```
 
 ---

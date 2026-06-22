@@ -1,4 +1,4 @@
--- BiZ-Up Africa — Schéma SQL complet v2.0
+-- MamaShop — Schéma SQL complet v2.0
 -- À exécuter dans l'éditeur SQL de ton projet Supabase
 
 -- ─────────────────────────────────────────────
